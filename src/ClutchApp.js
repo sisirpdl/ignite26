@@ -7,6 +7,7 @@ import LeaderboardScreen from './screens/LeaderboardScreen';
 import ChatScreen from './screens/ChatScreen';
 import MapScreen from './screens/MapScreen';
 import ProfileScreen from './screens/ProfileScreen';
+import GameModal from './components/GameModal';
 import { ME, squad } from './constants/data';
 import { dailyMetrics } from './utils/metrics';
 import { colors } from './styles/theme';
@@ -16,6 +17,7 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
   const [profile, setProfile] = useState(null);
   const [unread, setUnread] = useState(0);
   const [toast, setToast] = useState('');
+  const [gameOpen, setGameOpen] = useState(false);
   const metrics = dailyMetrics();
   const openProfile = (person = squad.find((member) => member.id === ME)) => setProfile(person);
   const flash = (message) => { setToast(message); };
@@ -28,14 +30,15 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
   return <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
     <View style={styles.app}>
       <View style={styles.content}>
-        {tab === 'dashboard' && <DashboardScreen metrics={metrics} onOpenProfile={openProfile} onTabChange={setTab} onToast={flash} />}
+        {tab === 'dashboard' && <DashboardScreen metrics={metrics} onOpenProfile={openProfile} onTabChange={setTab} onOpenGame={() => setGameOpen(true)} onToast={flash} />}
         {tab === 'leaderboard' && <LeaderboardScreen onProfile={openProfile} />}
-        {tab === 'chat' && <ChatScreen onUnread={setUnread} onProfile={openProfile} onToast={flash} />}
+        {tab === 'chat' && <ChatScreen onUnread={setUnread} onProfile={openProfile} onOpenGame={() => setGameOpen(true)} onToast={flash} />}
         {tab === 'map' && <MapScreen onToast={flash} />}
       </View>
       <BottomTabs active={tab} onChange={changeTab} unread={unread} />
       {toast ? <View pointerEvents="none" style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View> : null}
       <ProfileScreen visible={Boolean(profile)} person={profile} onClose={() => setProfile(null)} preferences={safePreferences} onPreferencesChange={onPreferencesChange} />
+      <GameModal visible={gameOpen} onClose={() => setGameOpen(false)} onToast={flash} />
     </View>
   </SafeAreaView>;
 }

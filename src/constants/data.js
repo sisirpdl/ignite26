@@ -19,6 +19,7 @@ export const initialMessages = [
   { id: 'm2', type: 'system', text: '🌙 Curfew report: 3/4 made it. Sakshyam broke curfew last night 👀', time: '6:01 AM', alert: true },
   { id: 'm3', type: 'activity', userId: 2, title: 'Morning Trail Run', stats: ['5.2 km', '27:41', '94 Fair score'], time: '7:58 AM', reactions: { '🔥': [1, 4] } },
   { id: 'm4', type: 'text', userId: 2, text: 'Woke up fresh with 92% recovery. Let’s crush the trail today!', time: '8:45 AM', reactions: { '💪': [3] } },
+  { id: 'm4a', type: 'snap', userId: 3, caption: 'Rough sleep, HRV bouncing back though 💀', emoji: '😵‍💫', time: '9:02 AM', reactions: {} },
   { id: 'm5', type: 'poll', userId: 4, question: 'Group trail run at 6 PM?', options: [{ label: 'I’m in 🙋', votes: [2, 4] }, { label: 'Next time', votes: [3] }], time: '9:10 AM' },
   { id: 'm6', type: 'text', userId: 1, text: 'Heading out now, see you on the board 😤', time: '9:25 AM', reactions: {} },
   { id: 'm7', type: 'system', text: '⚡ Clutch announced: Sleep 7h+ tonight. Starts 10 PM, everyone’s in.', time: '10:00 AM' }
