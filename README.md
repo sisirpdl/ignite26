@@ -1,6 +1,8 @@
-# Clutch Native
+# Clutch Studio
 
-Clutch is a native iOS and Android migration of the original social-fitness web prototype. It retains the dark, squad-focused experience: Fair Score/recovery dashboard, ranked month challenge, squad chat with polls and reactions, live location/turf/routing, ghost races, and profile streaks/badges.
+Clutch is a native iOS and Android migration of the original social-fitness web prototype. This design branch introduces a paper-and-ink visual system with lime accents while retaining the squad-focused experience: Fair Score/recovery dashboard, ranked month challenge, squad chat with polls and reactions, live location/turf/routing, ghost races, and profile streaks/badges.
+
+See `DESIGN_REVIEW.md` for the design direction, browser preview, verification, and frontend-only boundaries.
 
 ## Stack
 

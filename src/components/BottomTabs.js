@@ -1,25 +1,68 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../styles/theme';
-
+import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../styles/theme";
 const tabs = [
-  ['dashboard', 'Home', 'grid-outline'], ['leaderboard', 'Ranks', 'podium-outline'],
-  ['chat', 'Squad', 'chatbubbles-outline'], ['map', 'Map', 'map-outline']
+  ["dashboard", "Today", "sunny-outline"],
+  ["leaderboard", "Standings", "podium-outline"],
+  ["chat", "Squad", "chatbubbles-outline"],
+  ["map", "Explore", "compass-outline"],
 ];
-
 export default function BottomTabs({ active, onChange, unread }) {
-  return <View style={styles.wrap}>{tabs.map(([key, label, icon]) => {
-    const selected = active === key;
-    return <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected }} accessibilityLabel={label} onPress={() => onChange(key)} style={[styles.tab, selected && styles.active]}>
-      <View>{<Ionicons name={icon} size={22} color={selected ? '#a5f3fc' : colors.dim} />}{key === 'chat' && unread > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{unread}</Text></View>}</View>
-      <Text style={[styles.label, selected && styles.activeLabel]}>{label}</Text>
-    </Pressable>;
-  })}</View>;
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[s.wrap, { paddingBottom: Math.max(12, insets.bottom) }]}>
+      {tabs.map(([key, label, icon]) => (
+        <Pressable
+          key={key}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: active === key }}
+          accessibilityLabel={label}
+          onPress={() => onChange(key)}
+          style={s.tab}
+        >
+          <View style={[s.icon, active === key && s.selected]}>
+            <Ionicons
+              name={icon}
+              size={23}
+              color={active === key ? colors.text : colors.dim}
+            />
+            {key === "chat" && unread > 0 && <View style={s.badge} />}
+          </View>
+          <Text style={[s.label, active === key && s.labelOn]}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
 }
-const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', marginHorizontal: 12, marginBottom: 10, padding: 6, borderRadius: 24, backgroundColor: '#0b111d', borderWidth: 1, borderColor: colors.border },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 7, borderRadius: 18 }, active: { backgroundColor: 'rgba(34,211,238,.13)', borderWidth: 1, borderColor: 'rgba(34,211,238,.25)' },
-  label: { marginTop: 3, color: colors.dim, fontSize: 10, fontWeight: '800' }, activeLabel: { color: '#a5f3fc' },
-  badge: { position: 'absolute', right: -9, top: -5, backgroundColor: colors.rose, minWidth: 16, height: 16, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }, badgeText: { color: 'white', fontSize: 9, fontWeight: '900' }
+const s = StyleSheet.create({
+  wrap: {
+    flexDirection: "row",
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  tab: { flex: 1, alignItems: "center", minHeight: 52, gap: 4 },
+  icon: {
+    width: 52,
+    height: 30,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  selected: { backgroundColor: colors.lime },
+  label: { fontFamily: "Manrope_600SemiBold", fontSize: 10, color: colors.dim },
+  labelOn: { color: colors.text, fontFamily: "Manrope_800ExtraBold" },
+  badge: {
+    position: "absolute",
+    right: 9,
+    top: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.rose,
+  },
 });

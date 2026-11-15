@@ -1,28 +1,317 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Polyline, Text as SvgText } from 'react-native-svg';
-import Avatar from '../components/common/Avatar';
-import Card from '../components/common/Card';
-import ProgressBar from '../components/common/ProgressBar';
-import { monthlyScores, squad } from '../constants/data';
-import { colors, type } from '../styles/theme';
+import React, { useMemo, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
+import Avatar from "../components/common/Avatar";
+import Card from "../components/common/Card";
+import ProgressBar from "../components/common/ProgressBar";
+import { monthlyScores, squad } from "../constants/data";
+import { colors, type } from "../styles/theme";
 
 export default function LeaderboardScreen({ onProfile }) {
-  const [range, setRange] = useState('1M');
-  const ranked = useMemo(() => squad.map((person) => ({ ...person, score: monthlyScores[person.id].reduce((total, value) => total + value, 0) })).sort((a, b) => b.score - a.score), []);
+  const [range, setRange] = useState("1M");
+  const ranked = useMemo(
+    () =>
+      squad
+        .map((person) => ({
+          ...person,
+          score: monthlyScores[person.id].reduce(
+            (total, value) => total + value,
+            0,
+          ),
+        }))
+        .sort((a, b) => b.score - a.score),
+    [],
+  );
   const maximum = Math.max(...ranked.map((person) => person.score));
-  return <ScrollView style={styles.page} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-    <View><Text style={type.overline}>THE SQUAD</Text><Text style={styles.title}>Month Challenge</Text><Text style={styles.sub}>Verified Fair Scores build your rank.</Text></View>
-    <View style={styles.ranges}>{['12H', '2W', '1M', '3M'].map((option) => <Pressable key={option} onPress={() => setRange(option)} style={[styles.range, range === option && styles.rangeActive]}><Text style={[styles.rangeText, range === option && styles.rangeTextActive]}>{option}</Text></Pressable>)}</View>
-    <Card title={`${range} CHALLENGE SCORE`} action={<Text style={styles.live}>● LIVE</Text>}><ChallengeChart people={ranked} range={range} /><Text style={styles.chartCaption}>{range === '12H' ? 'Today’s verified movement · score events labelled' : range === '3M' ? 'Quarterly weekly score progression' : `Current month · ${range === '2W' ? 'last 14 days' : 'Day 19'}`}</Text></Card>
-    <View style={styles.rankHeader}><Text style={type.overline}>LEADERBOARD</Text><Text style={styles.day}>DAY 19 OF 30</Text></View>
-    {ranked.map((person, index) => <Pressable key={person.id} onPress={() => onProfile(person)} style={[styles.row, person.id === 1 && styles.meRow]}><Text style={[styles.place, index === 0 && styles.gold]}>{index + 1}</Text><Avatar person={person} size={42} /><View style={styles.rowCopy}><Text style={styles.rowName}>{person.id === 1 ? 'You' : person.name}</Text><Text style={styles.rowSub}>{person.recovery}% recovery · Today {person.today}/100</Text><ProgressBar value={(person.score / maximum) * 100} color={person.color} height={5} /></View><View style={styles.points}><Text style={[styles.score, { color: person.color }]}>{person.score.toLocaleString()}</Text><Text style={styles.pointLabel}>POINTS</Text></View></Pressable>)}
-    <Card title="HOW SCORING STAYS FAIR"><Text style={styles.fair}>Your HRV and resting heart rate are measured against your own 30-day baseline—not another wearable’s raw values. Steps must pass all four integrity checks before they count on the board.</Text></Card>
-  </ScrollView>;
+  return (
+    <ScrollView
+      style={styles.page}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <View>
+        <Text style={type.overline}>THE SQUAD</Text>
+        <Text style={styles.title}>Friendly competition.</Text>
+        <Text style={styles.sub}>
+          Different baselines. One level playing field.
+        </Text>
+      </View>
+      <View style={styles.ranges}>
+        {["12H", "2W", "1M", "3M"].map((option) => (
+          <Pressable
+            accessibilityRole="button"
+            key={option}
+            onPress={() => setRange(option)}
+            style={[styles.range, range === option && styles.rangeActive]}
+          >
+            <Text
+              style={[
+                styles.rangeText,
+                range === option && styles.rangeTextActive,
+              ]}
+            >
+              {option}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Card
+        title={`${range} CHALLENGE SCORE`}
+        action={<Text style={styles.live}>● DEMO</Text>}
+      >
+        <ChallengeChart people={ranked} range={range} />
+        <Text style={styles.chartCaption}>
+          {range === "12H"
+            ? "Today’s verified movement · score events labelled"
+            : range === "3M"
+              ? "Quarterly weekly score progression"
+              : `Current month · ${range === "2W" ? "last 14 days" : "Day 19"}`}
+        </Text>
+      </Card>
+      <View style={styles.rankHeader}>
+        <Text style={type.overline}>LEADERBOARD</Text>
+        <Text style={styles.day}>DAY 19 OF 30</Text>
+      </View>
+      {ranked.map((person, index) => (
+        <Pressable
+          accessibilityRole="button"
+          key={person.id}
+          onPress={() => onProfile(person)}
+          style={[styles.row, person.id === 1 && styles.meRow]}
+        >
+          <Text style={[styles.place, index === 0 && styles.gold]}>
+            {index + 1}
+          </Text>
+          <Avatar person={person} size={42} />
+          <View style={styles.rowCopy}>
+            <Text style={styles.rowName}>
+              {person.id === 1 ? "You" : person.name}
+            </Text>
+            <Text style={styles.rowSub}>
+              {person.recovery}% recovery · Today {person.today}/100
+            </Text>
+            <ProgressBar
+              value={(person.score / maximum) * 100}
+              color={person.color}
+              height={5}
+            />
+          </View>
+          <View style={styles.points}>
+            <Text style={[styles.score, { color: person.color }]}>
+              {person.score.toLocaleString()}
+            </Text>
+            <Text style={styles.pointLabel}>POINTS</Text>
+          </View>
+        </Pressable>
+      ))}
+      <Card title="HOW SCORING STAYS FAIR">
+        <Text style={styles.fair}>
+          Your HRV and resting heart rate are measured against your own 30-day
+          baseline—not another wearable’s raw values. Steps must pass all four
+          integrity checks before they count on the board.
+        </Text>
+      </Card>
+    </ScrollView>
+  );
 }
-const intraday = { 1:[0,0,0,17,10,14,8,15,26],2:[0,0,0,19,11,16,8,17,23],3:[0,0,0,12,9,13,7,15,18],4:[0,0,0,15,12,14,9,16,20] };
-const quarter = { 1:[544,612,477,650,516,593,638,481,607,576,681,528,610],2:[630,647,571,663,588,614,658,605,672,620,641,590,662],3:[496,542,601,465,572,620,510,641,550,586,625,488,598],4:[571,588,526,633,554,641,576,492,625,644,519,611,567] };
-function ChallengeChart({ people, range }) { const series = people.map((person) => { let values = range === '12H' ? intraday[person.id] : range === '2W' ? monthlyScores[person.id].slice(-14) : range === '3M' ? quarter[person.id] : monthlyScores[person.id]; if (range !== '12H') { let total = 0; values = values.map((value) => (total += value)); } else { let total = monthlyScores[person.id].slice(0,-1).reduce((sum,value) => sum + value, 0); values = values.map((value) => (total += value)); } return {...person, values}; }); const max = Math.max(...series.flatMap((item) => item.values)); const min = Math.min(...series.flatMap((item) => item.values)); const width=300, height=170, left=30, right=12, top=12, bottom=22; const point=(value,index,count)=>`${left + index * ((width-left-right)/Math.max(1,count-1))},${top + (height-top-bottom) - ((value-min)/Math.max(1,max-min))*(height-top-bottom)}`; const labels=range==='12H'?['9A','12P','3P','6P','Now']:range==='3M'?['W1','W5','W9','W13']:range==='2W'?['D1','D5','D10','D14']:['D1','D7','D13','D19']; return <View style={styles.chart}><Svg width="100%" height="170" viewBox={`0 0 ${width} ${height}`} accessibilityLabel="Challenge score chart">{[0.25,.5,.75,1].map((fraction)=><Line key={fraction} x1={left} x2={width-right} y1={top+(height-top-bottom)*fraction} y2={top+(height-top-bottom)*fraction} stroke="#1e293b" strokeDasharray="4 5"/>)}{series.map((person)=><React.Fragment key={person.id}><Polyline points={person.values.map((value,index)=>point(value,index,person.values.length)).join(' ')} fill="none" stroke={person.color} strokeWidth={person.id===1?3.5:2.3}/>{person.values.map((value,index)=> (index===person.values.length-1||index%4===0) ? <Circle key={index} cx={point(value,index,person.values.length).split(',')[0]} cy={point(value,index,person.values.length).split(',')[1]} r={person.id===1?3.5:2.5} fill={person.color}/> : null)}</React.Fragment>)}{labels.map((label,index)=><SvgText key={label} x={left+index*((width-left-right)/Math.max(1,labels.length-1))} y={height-5} fill="#64748b" fontSize="8" textAnchor="middle">{label}</SvgText>)}{range==='12H'&&<><SvgText x="205" y="32" fill="#c8ff00" fontSize="8">⚔ +2</SvgText><SvgText x="240" y="48" fill="#fb923c" fontSize="8">💥 +1</SvgText></>}</Svg></View>; }
+const intraday = {
+  1: [0, 0, 0, 17, 10, 14, 8, 15, 26],
+  2: [0, 0, 0, 19, 11, 16, 8, 17, 23],
+  3: [0, 0, 0, 12, 9, 13, 7, 15, 18],
+  4: [0, 0, 0, 15, 12, 14, 9, 16, 20],
+};
+const quarter = {
+  1: [544, 612, 477, 650, 516, 593, 638, 481, 607, 576, 681, 528, 610],
+  2: [630, 647, 571, 663, 588, 614, 658, 605, 672, 620, 641, 590, 662],
+  3: [496, 542, 601, 465, 572, 620, 510, 641, 550, 586, 625, 488, 598],
+  4: [571, 588, 526, 633, 554, 641, 576, 492, 625, 644, 519, 611, 567],
+};
+function ChallengeChart({ people, range }) {
+  const series = people.map((person) => {
+    let values =
+      range === "12H"
+        ? intraday[person.id]
+        : range === "2W"
+          ? monthlyScores[person.id].slice(-14)
+          : range === "3M"
+            ? quarter[person.id]
+            : monthlyScores[person.id];
+    if (range !== "12H") {
+      let total = 0;
+      values = values.map((value) => (total += value));
+    } else {
+      let total = monthlyScores[person.id]
+        .slice(0, -1)
+        .reduce((sum, value) => sum + value, 0);
+      values = values.map((value) => (total += value));
+    }
+    return { ...person, values };
+  });
+  const max = Math.max(...series.flatMap((item) => item.values));
+  const min = Math.min(...series.flatMap((item) => item.values));
+  const width = 300,
+    height = 170,
+    left = 30,
+    right = 12,
+    top = 12,
+    bottom = 22;
+  const point = (value, index, count) =>
+    `${left + index * ((width - left - right) / Math.max(1, count - 1))},${top + (height - top - bottom) - ((value - min) / Math.max(1, max - min)) * (height - top - bottom)}`;
+  const labels =
+    range === "12H"
+      ? ["9A", "12P", "3P", "6P", "Now"]
+      : range === "3M"
+        ? ["W1", "W5", "W9", "W13"]
+        : range === "2W"
+          ? ["D1", "D5", "D10", "D14"]
+          : ["D1", "D7", "D13", "D19"];
+  return (
+    <View style={styles.chart}>
+      <Svg
+        width="100%"
+        height="170"
+        viewBox={`0 0 ${width} ${height}`}
+        accessibilityLabel="Challenge score chart"
+      >
+        {[0.25, 0.5, 0.75, 1].map((fraction) => (
+          <Line
+            key={fraction}
+            x1={left}
+            x2={width - right}
+            y1={top + (height - top - bottom) * fraction}
+            y2={top + (height - top - bottom) * fraction}
+            stroke="#D7DCD0"
+            strokeDasharray="4 5"
+          />
+        ))}
+        {series.map((person) => (
+          <React.Fragment key={person.id}>
+            <Polyline
+              points={person.values
+                .map((value, index) =>
+                  point(value, index, person.values.length),
+                )
+                .join(" ")}
+              fill="none"
+              stroke={person.color}
+              strokeWidth={person.id === 1 ? 3.5 : 2.3}
+            />
+            {person.values.map((value, index) =>
+              index === person.values.length - 1 || index % 4 === 0 ? (
+                <Circle
+                  key={index}
+                  cx={point(value, index, person.values.length).split(",")[0]}
+                  cy={point(value, index, person.values.length).split(",")[1]}
+                  r={person.id === 1 ? 3.5 : 2.5}
+                  fill={person.color}
+                />
+              ) : null,
+            )}
+          </React.Fragment>
+        ))}
+        {labels.map((label, index) => (
+          <SvgText
+            key={label}
+            x={
+              left +
+              index * ((width - left - right) / Math.max(1, labels.length - 1))
+            }
+            y={height - 5}
+            fill="#64748b"
+            fontSize="8"
+            textAnchor="middle"
+          >
+            {label}
+          </SvgText>
+        ))}
+        {range === "12H" && (
+          <>
+            <SvgText x="205" y="32" fill="#c8ff00" fontSize="8">
+              ⚔ +2
+            </SvgText>
+            <SvgText x="240" y="48" fill="#fb923c" fontSize="8">
+              💥 +1
+            </SvgText>
+          </>
+        )}
+      </Svg>
+    </View>
+  );
+}
 const styles = StyleSheet.create({
- page: { flex: 1, backgroundColor: colors.bg }, content: { padding: 16, gap: 13, paddingBottom: 22 }, title: { color: colors.text, fontSize: 27, fontWeight: '900', marginTop: 2 }, sub: { color: colors.muted, marginTop: 4, fontSize: 12 }, ranges: { flexDirection: 'row', padding: 4, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceAlt, borderRadius: 16 }, range: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 11 }, rangeActive: { backgroundColor: colors.lime }, rangeText: { color: colors.muted, fontSize: 11, fontWeight: '900' }, rangeTextActive: { color: '#030508' }, live: { color: colors.rose, fontSize: 10, fontWeight: '900' }, chart: { height: 170, borderBottomWidth: 1, borderColor: colors.border, justifyContent: 'center' }, chartCaption: { color: colors.dim, fontSize: 10, marginTop: 10, fontWeight: '700' }, rankHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }, day: { color: colors.dim, fontSize: 10, fontWeight: '900' }, row: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }, meRow: { borderColor: 'rgba(200,255,0,.45)', backgroundColor: 'rgba(200,255,0,.06)' }, place: { color: colors.dim, width: 17, textAlign: 'center', fontSize: 14, fontWeight: '900' }, gold: { color: colors.amber }, rowCopy: { flex: 1, gap: 3 }, rowName: { color: colors.text, fontSize: 14, fontWeight: '900' }, rowSub: { color: colors.muted, fontSize: 10, fontWeight: '600' }, points: { alignItems: 'flex-end' }, score: { fontSize: 16, fontWeight: '900', fontVariant: ['tabular-nums'] }, pointLabel: { color: colors.dim, fontSize: 8, fontWeight: '900', letterSpacing: 1 }, fair: { color: colors.muted, lineHeight: 19, fontSize: 12 }
+  page: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: 24, gap: 18, paddingBottom: 22 },
+  title: { color: colors.text, fontSize: 32, fontWeight: "900", marginTop: 2 },
+  sub: { color: colors.muted, marginTop: 4, fontSize: 12 },
+  ranges: {
+    flexDirection: "row",
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 16,
+  },
+  range: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+    borderRadius: 11,
+  },
+  rangeActive: { backgroundColor: colors.lime },
+  rangeText: { color: colors.muted, fontSize: 11, fontWeight: "900" },
+  rangeTextActive: { color: "#030508" },
+  live: { color: colors.rose, fontSize: 10, fontWeight: "900" },
+  chart: {
+    height: 170,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    justifyContent: "center",
+  },
+  chartCaption: {
+    color: colors.dim,
+    fontSize: 10,
+    marginTop: 10,
+    fontWeight: "700",
+  },
+  rankHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  day: { color: colors.dim, fontSize: 10, fontWeight: "900" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  meRow: {
+    borderColor: "rgba(200,255,0,.45)",
+    backgroundColor: "rgba(200,255,0,.06)",
+  },
+  place: {
+    color: colors.dim,
+    width: 17,
+    textAlign: "center",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  gold: { color: colors.amber },
+  rowCopy: { flex: 1, gap: 3 },
+  rowName: { color: colors.text, fontSize: 14, fontWeight: "900" },
+  rowSub: { color: colors.muted, fontSize: 10, fontWeight: "600" },
+  points: { alignItems: "flex-end" },
+  score: { fontSize: 16, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  pointLabel: {
+    color: colors.dim,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+  fair: { color: colors.muted, lineHeight: 19, fontSize: 12 },
 });

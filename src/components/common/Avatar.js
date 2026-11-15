@@ -1,12 +1,30 @@
-import React, { useState } from 'react';
-import { Image, Text, View } from 'react-native';
-
+import React from "react";
+import { Text, View } from "react-native";
 export default function Avatar({ person, size = 40 }) {
-  const [failed, setFailed] = useState(false);
-  const uri = `https://api.dicebear.com/9.x/adventurer/png?seed=${encodeURIComponent(person.avatar)}&backgroundColor=${person.color.replace('#', '')}&radius=50`;
+  const fills = ["#E7EFCF", "#DAEAE4", "#E9E2F1", "#F4E3D2"];
   return (
-    <View style={{ width: size, height: size, borderRadius: size / 2, overflow: 'hidden', backgroundColor: person.color, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: person.color }}>
-      {failed ? <Text style={{ color: '#030508', fontSize: size * 0.42, fontWeight: '900' }}>{person.name[0]}</Text> : <Image accessibilityLabel={`${person.name} avatar`} onError={() => setFailed(true)} source={{ uri }} style={{ width: size, height: size }} />}
+    <View
+      accessibilityLabel={`${person.name} avatar`}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: fills[(person.id - 1) % 4],
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 2,
+        borderColor: "#FFFFFF",
+      }}
+    >
+      <Text
+        style={{
+          color: "#30382B",
+          fontFamily: "Manrope_800ExtraBold",
+          fontSize: size * 0.34,
+        }}
+      >
+        {person.name.slice(0, 2).toUpperCase()}
+      </Text>
     </View>
   );
 }
