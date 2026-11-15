@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useId } from "react";
 import {
   Modal,
   Pressable,
@@ -10,676 +10,832 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import Svg, { Path, Line } from "react-native-svg";
-import Brand from "../components/Brand";
+import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
 import Avatar from "../components/common/Avatar";
-import Card from "../components/common/Card";
-import ProgressBar from "../components/common/ProgressBar";
 import ScoreRing from "../components/ScoreRing";
-import { bios, squad } from "../constants/data";
+import ProgressBar from "../components/common/ProgressBar";
+import Card from "../components/common/Card";
+import { squad, monthlyScores } from "../constants/data";
+import { useBackendStatus, useBackendState } from "../data/BackendProvider";
 import { colors, type } from "../styles/theme";
 
-const highlights = [
-  [
-    "01 / THE DAILY EDIT",
-    "Small moves.\nBig momentum.",
-    "Your squad is showing up. A little movement, a little recovery, and a little friendly competition.",
+function Glow({ children, style, from = "#172740", to = "#0D1421" }) {
+  const gradientId = "panel" + useId().replace(/[^a-zA-Z0-9]/g, "");
+  return (
+    <View style={[s.glow, style]}>
+      <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
+        <Defs>
+          <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0" stopColor={from} />
+            <Stop offset="1" stopColor={to} />
+          </LinearGradient>
+        </Defs>
+        <Rect width="100%" height="100%" fill={`url(#${gradientId})`} />
+      </Svg>
+      {children}
+    </View>
+  );
+}
+const storyData = {
+  daily: [
+    [
+      "☀️",
+      "DAILY RECAP",
+      "Your squad.\nOn the rise.",
+      "The board is alive. Every verified effort moves you forward.",
+    ],
+    [
+      "🔥",
+      "STREAK CHECK",
+      "Nine days.\nNo excuses.",
+      "Your step streak is growing. Keep showing up.",
+    ],
   ],
-  [
-    "02 / SQUAD WATCH",
-    "Better,\ntogether.",
-    "Head to Standings to see how everyone’s verified daily scores stack up.",
+  weekly: [
+    [
+      "🏆",
+      "WEEKLY RECAP",
+      "Chase progress.\nBring your people.",
+      "Recovery, movement and a little friendly rivalry. That’s a good week.",
+    ],
+    [
+      "🌙",
+      "NEXT UP",
+      "Tonight,\nsleep wins.",
+      "Seven hours. Four friends. One shared Clutch.",
+    ],
   ],
-  [
-    "03 / TONIGHT",
-    "Rest is\npart of the plan.",
-    "Tonight’s Clutch: aim for 7 hours of sleep. The whole squad is in.",
-  ],
-];
+};
 export default function DashboardScreen({
   metrics,
   onOpenProfile,
-  onOpenGame,
   onTabChange,
+  onOpenGame,
 }) {
   const [story, setStory] = useState(null);
+  const [seen, setSeen] = useState({});
+  const backend = useBackendStatus();
+  const [runs] = useBackendState("runs", []);
+  const [game] = useBackendState("game", {});
   const { width } = useWindowDimensions();
-  const compact = width < 370;
+  const openStory = (kind) => {
+    setSeen((all) => ({ ...all, [kind]: true }));
+    setStory({ kind, index: 0 });
+  };
+  const rank =
+    [...squad]
+      .sort(
+        (a, b) =>
+          monthlyScores[b.id].reduce((x, y) => x + y) -
+          monthlyScores[a.id].reduce((x, y) => x + y),
+      )
+      .findIndex((p) => p.id === 1) + 1;
+  const points = monthlyScores[1].reduce((a, b) => a + b, 0);
   return (
     <ScrollView
       style={s.page}
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
     >
-      <View style={s.top}>
-        <Brand />
+      <View style={s.brandRow}>
+        <Text style={s.brand}>
+          clutch<Text style={{ color: colors.lime }}>⚡</Text>
+        </Text>
+        <View style={s.season}>
+          <View style={s.liveDot} />
+          <Text style={s.seasonText}>SEASON 01 · DEMO</Text>
+        </View>
+      </View>
+      <View style={s.storyRow}>
+        <View style={s.storyLinks}>
+          {[
+            ["daily", "☀️", "Daily", colors.lime],
+            ["weekly", "🏆", "Weekly", colors.violet],
+          ].map(([key, emoji, label, color]) => (
+            <Pressable
+              key={key}
+              accessibilityRole="button"
+              accessibilityLabel={`${label} story`}
+              onPress={() => openStory(key)}
+              style={s.storyLink}
+            >
+              <View
+                style={[
+                  s.storyCircle,
+                  { borderColor: seen[key] ? colors.border : color },
+                ]}
+              >
+                <Text style={s.storyEmoji}>{emoji}</Text>
+              </View>
+              <Text style={s.storyCaption}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open group profile"
+          onPress={() => onOpenProfile()}
+          style={s.group}
+        >
+          <Text style={s.groupName}>⚡ The Squad</Text>
+          <Text style={s.groupPoints}>{points.toLocaleString()} pts</Text>
+        </Pressable>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Open your profile"
           onPress={() => onOpenProfile()}
+          style={s.storyLink}
         >
           <Avatar person={squad[0]} size={44} />
+          <Text style={s.storyCaption}>Profile</Text>
         </Pressable>
       </View>
-      <View style={s.greeting}>
-        <View>
-          <Text style={s.eyebrow}>YOUR DAILY ADVANTAGE</Text>
-          <Text style={s.title}>Make today count.</Text>
+      <Glow from="#26351B" to="#0D1720" style={s.clutchCard}>
+        <View style={s.between}>
+          <Text style={[s.kicker, { color: colors.lime }]}>
+            ⚡ TONIGHT’S CLUTCH
+          </Text>
+          <Text style={s.everyone}>EVERYONE’S IN</Text>
         </View>
-        <View style={s.demo}>
-          <View style={s.dot} />
-          <Text style={s.demoText}>DEMO</Text>
-        </View>
-      </View>
-      <View style={s.hero}>
-        <View style={s.heroTop}>
-          <Text style={s.heroEyebrow}>THE READINESS REPORT</Text>
-          <Ionicons name="sparkles-outline" size={19} color={colors.lime} />
-        </View>
-        <View
-          style={[
-            s.heroMain,
-            compact && { flexDirection: "column", alignItems: "flex-start" },
-          ]}
-        >
-          <View style={s.heroCopy}>
-            <Text style={s.heroTitle}>A good day{`\n`}to go further.</Text>
-            <Text style={s.heroSub}>
-              You’ve put in the rest.{`\n`}Now find your rhythm.
+        <View style={s.clutchBody}>
+          <View style={s.moon}>
+            <Text style={{ fontSize: 30 }}>🌙</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={s.clutchTitle}>Sleep 7h+ tonight</Text>
+            <Text style={s.muted}>
+              {game.clutch === "live"
+                ? "Live until 8 AM · Rest now. Win tomorrow."
+                : game.clutch === "settled"
+                  ? "Challenge complete · 3/4 passed"
+                  : "Starts 10 PM · Rest now. Win tomorrow."}
             </Text>
           </View>
-          <View style={s.ring}>
-            <ScoreRing
-              value={metrics.recovery}
-              label="Recovery"
-              color={colors.lime}
-              size={116}
-            />
+        </View>
+        <View style={s.between}>
+          <View style={s.avatarStack}>
+            {squad.map((p) => (
+              <View key={p.id} style={{ marginRight: -7 }}>
+                <Avatar person={p} size={27} />
+              </View>
+            ))}
+            <Text style={s.squadJoined}>4/4 ready</Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => onOpenGame("clutch")}
+            style={s.outlineButton}
+          >
+            <Text style={s.limeText}>View challenge</Text>
+            <Ionicons name="arrow-forward" color={colors.lime} size={14} />
+          </Pressable>
+        </View>
+      </Glow>
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Your daily stats</Text>
+        <Text style={s.sample}>SAMPLE HEALTH DATA</Text>
+      </View>
+      <Glow from="#112C2A" to="#101925">
+        <View style={s.between}>
+          <Text style={s.kicker}>TODAY’S READINESS</Text>
+          <View style={s.positive}>
+            <Ionicons name="trending-up" color={colors.emerald} size={13} />
+            <Text style={s.positiveText}>IN THE GREEN</Text>
           </View>
         </View>
-        <View style={s.heroFooter}>
-          <View style={s.statusDot} />
-          <Text style={s.heroFootText}>Ready for movement</Text>
-          <Text style={s.heroFootRight}>YOUR BASELINE, YOUR PACE</Text>
-        </View>
-      </View>
-      <View style={s.sectionHead}>
-        <Text style={s.sectionTitle}>Your daily pulse</Text>
-        <Text style={s.sectionMeta}>SAMPLE HEALTH DATA</Text>
-      </View>
-      <View style={s.stats}>
-        <View style={[s.stat, s.scoreCard]}>
-          <View style={s.statTop}>
-            <Ionicons name="flash-outline" size={19} color={colors.text} />
-            <Text style={s.pill}>FAIR SCORE</Text>
+        <View style={[s.readiness, width < 350 && { gap: 10 }]}>
+          <ScoreRing
+            value={metrics.recovery}
+            label="Recovery"
+            color={colors.emerald}
+            size={width < 350 ? 110 : 128}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={s.readyTitle}>Primed to{`\n`}perform.</Text>
+            <Text style={s.readySub}>
+              Recovered. Recharged.{`\n`}Go make your move.
+            </Text>
+            <View style={s.vitals}>
+              <Text style={s.vital}>
+                HRV <Text style={s.vitalValue}>74</Text>
+              </Text>
+              <Text style={s.vital}>
+                RHR <Text style={s.vitalValue}>52</Text>
+              </Text>
+            </View>
           </View>
-          <Text style={s.score}>
+        </View>
+      </Glow>
+      <View style={s.scoreStrip}>
+        <View>
+          <Text style={s.kicker}>DAILY FAIR SCORE</Text>
+          <Text style={s.fairScore}>
             {metrics.fairScore}
-            <Text style={s.unit}> / 100</Text>
+            <Text style={s.hundred}> / 100</Text>
           </Text>
-          <Text style={s.statNote}>Personal effort. Fairly measured.</Text>
+        </View>
+        <View style={{ flex: 1, marginHorizontal: 18 }}>
+          <Text style={s.personalBest}>Built on your baseline</Text>
           <ProgressBar
             value={metrics.fairScore}
-            color={colors.text}
-            height={4}
+            color={colors.cyan}
+            height={6}
           />
+          <Text style={s.scoreNote}>HRV · sleep · heart rate · steps</Text>
         </View>
-        <View style={s.stat}>
-          <View style={s.statTop}>
-            <Ionicons name="footsteps-outline" size={19} color={colors.text} />
-            <Ionicons
-              name="checkmark-circle"
-              size={18}
-              color={colors.emerald}
-            />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="View challenge standings"
+          onPress={() => onTabChange("leaderboard")}
+          style={s.rank}
+        >
+          <Text style={s.rankNumber}>#{rank}</Text>
+          <Text style={s.rankLabel}>SQUAD</Text>
+        </Pressable>
+      </View>
+      <View style={s.metricRow}>
+        <Mini
+          emoji="👟"
+          label="STEPS"
+          value="10,420"
+          sub="10,000 goal crushed"
+          color={colors.lime}
+          progress={100}
+        />
+        <Mini
+          emoji="🔥"
+          label="STRAIN"
+          value="14.2"
+          sub="Moderate intensity"
+          color={colors.orange}
+          progress={68}
+        />
+      </View>
+      <View style={s.streakStrip}>
+        {[
+          ["😴", "5", "SLEEP"],
+          ["🌙", "3", "CURFEW"],
+          ["👟", "9", "STEP GOAL"],
+        ].map(([emoji, n, label]) => (
+          <View key={label} style={s.streak}>
+            <Text style={{ fontSize: 20 }}>{emoji}</Text>
+            <View>
+              <Text style={s.streakNumber}>
+                {n}
+                <Text style={s.streakDays}> days 🔥</Text>
+              </Text>
+              <Text style={s.streakLabel}>{label}</Text>
+            </View>
           </View>
-          <Text style={s.statLabel}>Daily steps</Text>
-          <Text style={s.number}>{bios.steps.toLocaleString()}</Text>
-          <Text style={s.statNote}>
-            Goal of {bios.stepGoal.toLocaleString()} · done
-          </Text>
-          <ProgressBar value={100} color={colors.accent} height={4} />
-        </View>
+        ))}
+      </View>
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Enter the arena</Text>
+        <Text style={s.sample}>MAKE IT PERSONAL</Text>
+      </View>
+      <View style={s.arenaRow}>
+        <Arena
+          emoji="⚔️"
+          title="1v1 Duel"
+          text="Call out your rival"
+          color={colors.rose}
+          onPress={() => onOpenGame("duels")}
+        />
+        <Arena
+          emoji="📵"
+          title="Phone Down"
+          text="Log off. Level up."
+          color={colors.violet}
+          onPress={() => onOpenGame("clutch")}
+        />
       </View>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Open squad challenges"
-        onPress={onOpenGame}
-        style={s.challenge}
+        accessibilityLabel="Open squad feed"
+        onPress={() => onTabChange("chat")}
       >
-        <View style={s.challengeIcon}>
-          <Ionicons name="moon-outline" size={26} color={colors.text} />
-        </View>
-        <View style={s.challengeCopy}>
-          <Text style={s.eyebrow}>TONIGHT’S CLUTCH · 10 PM</Text>
-          <Text style={s.challengeTitle}>Rest up. Rise together.</Text>
-          <Text style={s.statNote}>7+ hours of sleep. Everyone’s in.</Text>
-        </View>
-        <Ionicons name="arrow-forward" size={23} color={colors.text} />
-      </Pressable>
-      <View style={s.sectionHead}>
-        <Text style={s.sectionTitle}>Good company.</Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onTabChange("chat")}
-          style={s.link}
-        >
-          <Text style={s.linkText}>Open squad</Text>
-          <Ionicons name="arrow-forward" size={15} color={colors.accent} />
-        </Pressable>
-      </View>
-      <View style={s.squad}>
-        {squad.map((p) => (
-          <Pressable
-            accessibilityRole="button"
-            key={p.id}
-            accessibilityLabel={`Open ${p.name} profile`}
-            onPress={() => onOpenProfile(p)}
-            style={s.person}
-          >
-            <Avatar person={p} size={49} />
-            <Text style={s.personName}>{p.id === 1 ? "You" : p.name}</Text>
-            <Text style={s.personRecovery}>{p.recovery}% ready</Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={s.actions}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onOpenGame}
-          style={s.primary}
-        >
-          <Ionicons name="flag-outline" size={18} color="white" />
-          <Text style={s.primaryText}>Start a challenge</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => onTabChange("map")}
-          style={s.secondary}
-        >
-          <Ionicons name="compass-outline" size={18} color={colors.text} />
-          <Text style={s.secondaryText}>Find a route</Text>
-        </Pressable>
-      </View>
-      <View style={s.sectionHead}>
-        <Text style={s.sectionTitle}>The recovery edit</Text>
-        <Ionicons name="leaf-outline" size={20} color={colors.accent} />
-      </View>
-      <Card>
-        <View style={s.sleepHeading}>
-          <View>
-            <Text style={s.eyebrow}>LAST NIGHT’S SLEEP</Text>
-            <Text style={s.sleepNumber}>
-              8<Text style={s.sleepUnit}>h </Text>12
-              <Text style={s.sleepUnit}>m</Text>
+        <Glow from="#1C1835" to="#101722">
+          <View style={s.between}>
+            <Text style={[s.kicker, { color: colors.violet }]}>
+              💬 SQUAD CHECK-IN
+            </Text>
+            <Ionicons name="arrow-forward" color={colors.violet} size={18} />
+          </View>
+          <Text style={s.feedTitle}>The group chat has legs.</Text>
+          <Text style={s.muted}>Trail run at 6? Your people are waiting.</Text>
+          <View style={[s.avatarStack, { marginTop: 12 }]}>
+            {squad.slice(1).map((p) => (
+              <View key={p.id} style={{ marginRight: -6 }}>
+                <Avatar person={p} size={27} />
+              </View>
+            ))}
+            <Text style={[s.squadJoined, { color: colors.violet }]}>
+              Polls, snaps & a little trash talk
             </Text>
           </View>
-          <View style={s.sleepBadge}>
-            <Ionicons name="moon" size={15} color={colors.violet} />
-            <Text style={s.sleepBadgeText}>92% efficiency</Text>
-          </View>
-        </View>
+        </Glow>
+      </Pressable>
+      <View style={s.section}>
+        <Text style={s.sectionTitle}>Recovery is a flex.</Text>
+        <Text style={s.sample}>LAST NIGHT</Text>
+      </View>
+      <Card
+        title="😴 SLEEP BREAKDOWN"
+        action={
+          <Text
+            style={{ color: colors.violet, fontSize: 10, fontWeight: "800" }}
+          >
+            92% EFFICIENCY
+          </Text>
+        }
+      >
+        <Text style={s.sleepValue}>
+          8h <Text style={{ color: colors.violet }}>12m</Text>
+        </Text>
         <View style={s.sleepChart}>
-          {Array.from({ length: 36 }, (_, i) => (
+          {Array.from({ length: 32 }, (_, i) => (
             <View
               key={i}
               style={{
                 flex: 1,
-                height: [18, 26, 39, 29, 16, 35, 44, 28, 20][i % 9],
+                height: [20, 34, 46, 28, 39, 18, 30, 44][i % 8],
                 borderRadius: 3,
-                backgroundColor: ["#B9ABD3", "#827298", "#D6CDE4"][
+                backgroundColor: ["#6366F1", "#A78BFA", "#38BDF8"][
                   Math.floor(i / 4) % 3
                 ],
               }}
             />
           ))}
         </View>
-        <View style={s.sleepLegend}>
+        <View style={s.between}>
           {[
-            ["Deep", "1h 38m", "#827298"],
-            ["REM", "1h 52m", "#B9ABD3"],
-            ["Light", "4h 42m", "#D6CDE4"],
-          ].map(([a, b, c]) => (
-            <View key={a} style={s.legendItem}>
-              <View style={[s.legendDot, { backgroundColor: c }]} />
-              <Text style={s.legendText}>
-                {a} <Text style={s.legendValue}>{b}</Text>
-              </Text>
-            </View>
+            ["Deep", "98m", "#6366F1"],
+            ["REM", "112m", "#A78BFA"],
+            ["Light", "282m", "#38BDF8"],
+          ].map(([label, value, color]) => (
+            <Text key={label} style={s.sleepLegend}>
+              <Text style={{ color }}>● </Text>
+              {label} <Text style={{ color: "white" }}>{value}</Text>
+            </Text>
           ))}
         </View>
       </Card>
-      <View style={s.wellbeing}>
-        {[
-          ["Strain", "14.2", "Moderate", "fitness-outline"],
-          ["Body battery", "76", "Charged", "battery-half-outline"],
-          ["Stress", "31", "Mostly calm", "leaf-outline"],
-          [
-            "Screen time",
-            "3h 24m",
-            "36m to your limit",
-            "phone-portrait-outline",
-          ],
-          ["VO₂ max", "48.2", "Excellent", "pulse-outline"],
-          ["Resting HR", "52 bpm", "Your resting rhythm", "heart-outline"],
-        ].map(([label, value, note, icon]) => (
-          <View key={label} style={s.wellItem}>
-            <Ionicons name={icon} size={18} color={colors.muted} />
-            <Text style={s.wellLabel}>{label}</Text>
-            <Text style={s.wellValue}>{value}</Text>
-            <Text style={s.statNote}>{note}</Text>
-          </View>
-        ))}
+      <View style={s.metricRow}>
+        <Mini
+          emoji="🔋"
+          label="BODY BATTERY"
+          value="76"
+          sub="Charged and ready"
+          color={colors.cyan}
+          progress={76}
+        />
+        <Mini
+          emoji="🧘"
+          label="STRESS"
+          value="31"
+          sub="Mostly calm"
+          color={colors.emerald}
+          progress={31}
+        />
       </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="View daily spotlight"
-        onPress={() => setStory(0)}
-        style={s.editorial}
-      >
-        <View style={s.editorialCopy}>
-          <Text style={s.eyebrow}>THE DAILY EDIT / 01</Text>
-          <Text style={s.editorialTitle}>Small moves.{`\n`}Big momentum.</Text>
-          <View style={s.link}>
-            <Text style={s.linkText}>Your squad spotlight</Text>
-            <Ionicons name="arrow-forward" size={18} color={colors.accent} />
+      <View style={s.metricRow}>
+        <Mini
+          emoji="📱"
+          label="SCREEN TIME"
+          value="3h 24m"
+          sub="36m left in your limit"
+          color={colors.amber}
+          progress={85}
+        />
+        <Mini
+          emoji="🫀"
+          label="VO₂ MAX"
+          value="48.2"
+          sub="Excellent · trending up"
+          color={colors.violet}
+          progress={80}
+        />
+      </View>
+      <Pressable accessibilityRole="button" onPress={() => onTabChange("map")}>
+        <Glow from="#12364A" to="#101725">
+          <View style={s.between}>
+            <View>
+              <Text style={[s.kicker, { color: colors.cyan }]}>
+                🗺️ OWN YOUR TURF
+              </Text>
+              <Text style={s.feedTitle}>
+                Race the ghost.{`\n`}Leave your mark.
+              </Text>
+              <Text style={s.muted}>
+                {runs.length
+                  ? `${runs.length} ${runs.length === 1 ? "run" : "runs"} saved to your backend`
+                  : "3 routes · Squad territory · Ghost races"}
+              </Text>
+            </View>
+            <Ionicons name="navigate-circle" size={58} color={colors.cyan} />
           </View>
-        </View>
-        <Svg width={98} height={132} viewBox="0 0 98 132">
-          <Path
-            d="M98 10C12 10 12 80 98 80M98 32C38 32 38 102 98 102M98 54C64 54 64 124 98 124"
-            stroke="#667D3E"
-            strokeWidth={10}
-            fill="none"
-          />
-          <Line x1="0" y1="125" x2="98" y2="125" stroke="#A7B591" />
-        </Svg>
+        </Glow>
       </Pressable>
-      <Text style={s.endnote}>MOVE WITH PURPOSE. SHOW UP FOR EACH OTHER.</Text>
+      <View accessibilityRole="text" style={s.backend}>
+        <View
+          style={[
+            s.liveDot,
+            { backgroundColor: backend.error ? colors.rose : colors.emerald },
+          ]}
+        />
+        <Text style={[s.backendText, backend.error && { color: colors.rose }]}>
+          {backend.error || backend.status}
+        </Text>
+      </View>
       <Modal
-        visible={story !== null}
+        visible={!!story}
         animationType="fade"
         onRequestClose={() => setStory(null)}
       >
         <SafeAreaView style={s.storyPage}>
-          <View style={s.storyHeader}>
-            <Brand />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Close spotlight"
-              style={s.close}
-              onPress={() => setStory(null)}
-            >
-              <Ionicons name="close" size={28} />
-            </Pressable>
-          </View>
-          {story !== null && (
-            <View style={s.storyBody}>
-              <Text style={s.eyebrow}>{highlights[story][0]}</Text>
-              <Text style={s.storyTitle}>{highlights[story][1]}</Text>
-              <Text style={s.storySub}>{highlights[story][2]}</Text>
-              <View style={s.storyDots}>
-                {highlights.map((_, i) => (
+          {story && (
+            <>
+              <View style={s.storyProgress}>
+                {storyData[story.kind].map((_, i) => (
                   <View
                     key={i}
                     style={[
-                      s.storyDot,
-                      i === story && {
-                        backgroundColor: colors.accent,
-                        width: 30,
-                      },
+                      s.storyTrack,
+                      i <= story.index && { backgroundColor: colors.lime },
                     ]}
                   />
                 ))}
               </View>
-            </View>
+              <View style={s.between}>
+                <Text style={s.brand}>clutch⚡</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close story"
+                  onPress={() => setStory(null)}
+                  style={s.close}
+                >
+                  <Ionicons name="close" color="white" size={28} />
+                </Pressable>
+              </View>
+              <View style={s.storyMain}>
+                <Text style={{ fontSize: 85 }}>
+                  {storyData[story.kind][story.index][0]}
+                </Text>
+                <Text style={[s.kicker, { color: colors.lime, marginTop: 28 }]}>
+                  {storyData[story.kind][story.index][1]}
+                </Text>
+                <Text style={s.storyTitle}>
+                  {storyData[story.kind][story.index][2]}
+                </Text>
+                <Text style={s.storyDescription}>
+                  {storyData[story.kind][story.index][3]}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() =>
+                  setStory(
+                    story.index + 1 < storyData[story.kind].length
+                      ? { ...story, index: story.index + 1 }
+                      : null,
+                  )
+                }
+                style={s.storyNext}
+              >
+                <Text style={{ fontWeight: "900" }}>Next highlight →</Text>
+              </Pressable>
+            </>
           )}
-          <Pressable
-            accessibilityRole="button"
-            style={s.primary}
-            onPress={() => setStory(story < 2 ? story + 1 : null)}
-          >
-            <Text style={s.primaryText}>
-              {story === 2 ? "Back to today" : "Next highlight"}
-            </Text>
-            <Ionicons name="arrow-forward" size={20} color="white" />
-          </Pressable>
         </SafeAreaView>
       </Modal>
     </ScrollView>
   );
 }
+function Mini({ emoji, label, value, sub, color, progress }) {
+  return (
+    <View style={s.mini}>
+      <View style={s.between}>
+        <Text style={{ fontSize: 19 }}>{emoji}</Text>
+        <Text style={[s.miniLabel, { color }]}>{label}</Text>
+      </View>
+      <Text style={s.miniValue}>{value}</Text>
+      <Text style={s.muted}>{sub}</Text>
+      <View style={{ marginTop: 12 }}>
+        <ProgressBar value={progress} color={color} height={5} />
+      </View>
+    </View>
+  );
+}
+function Arena({ emoji, title, text, color, onPress }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={[
+        s.arena,
+        { borderColor: color + "55", backgroundColor: color + "10" },
+      ]}
+    >
+      <View style={s.between}>
+        <Text style={{ fontSize: 26 }}>{emoji}</Text>
+        <Ionicons name="arrow-up-right-box-outline" size={17} color={color} />
+      </View>
+      <Text style={s.arenaTitle}>{title}</Text>
+      <Text style={s.muted}>{text}</Text>
+    </Pressable>
+  );
+}
 const s = StyleSheet.create({
-  page: { flex: 1 },
-  content: { padding: 22, gap: 16, paddingBottom: 28 },
-  top: {
+  page: { flex: 1, backgroundColor: colors.bg },
+  content: { padding: 16, gap: 13, paddingBottom: 22 },
+  brandRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
   },
-  greeting: { gap: 10, marginBottom: 3 },
-  eyebrow: { ...type.overline, fontSize: 9, letterSpacing: 1.3 },
-  title: {
+  brand: {
+    color: "white",
     fontFamily: "Manrope_800ExtraBold",
-    fontSize: 30,
-    letterSpacing: -1.4,
-    color: colors.text,
-    marginTop: 6,
+    fontSize: 25,
+    letterSpacing: -1.2,
   },
-  demo: {
-    flexDirection: "row",
-    gap: 5,
-    alignItems: "center",
-    position: "absolute",
-    right: 0,
-    top: -7,
-  },
-  dot: { height: 5, width: 5, borderRadius: 3, backgroundColor: colors.accent },
-  demoText: { fontSize: 8, letterSpacing: 1, color: colors.muted },
-  hero: {
-    backgroundColor: colors.ink,
-    borderRadius: 24,
-    padding: 22,
-    overflow: "hidden",
-  },
-  heroTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  heroEyebrow: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 9,
-    letterSpacing: 1.4,
-    color: "#CCD6BD",
-  },
-  heroMain: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 22,
-  },
-  heroCopy: { flex: 1 },
-  heroTitle: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 28,
-    lineHeight: 33,
-    letterSpacing: -1,
-    color: "#F7FAEF",
-  },
-  heroSub: {
-    fontFamily: "Manrope_400Regular",
-    fontSize: 12,
-    lineHeight: 19,
-    color: "#BFCBB3",
-    marginTop: 10,
-  },
-  ring: { backgroundColor: "#303C28", borderRadius: 66, padding: 6 },
-  heroFooter: {
+  season: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    borderTopWidth: 1,
-    borderColor: "#414B38",
-    paddingTop: 14,
-    flexWrap: "wrap",
+    backgroundColor: "#101725",
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  statusDot: {
+  liveDot: {
     width: 5,
     height: 5,
-    borderRadius: 3,
+    borderRadius: 4,
     backgroundColor: colors.lime,
   },
-  heroFootText: {
-    color: "#E0E9D5",
-    fontSize: 10,
-    fontFamily: "Manrope_600SemiBold",
+  seasonText: {
+    color: colors.muted,
+    fontSize: 8,
+    fontWeight: "900",
+    letterSpacing: 0.8,
   },
-  heroFootRight: {
-    color: "#A5B198",
-    fontSize: 7,
-    letterSpacing: 0.6,
-    marginLeft: "auto",
+  storyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 6,
   },
-  sectionHead: {
+  storyLinks: { flexDirection: "row", gap: 12 },
+  storyLink: { alignItems: "center", gap: 5 },
+  storyCircle: {
+    width: 48,
+    height: 48,
+    borderWidth: 2,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+  },
+  storyEmoji: { fontSize: 23 },
+  storyCaption: { color: "#D2DEEA", fontSize: 9, fontWeight: "800" },
+  group: { alignItems: "center", gap: 7 },
+  groupName: { color: "white", fontSize: 12, fontWeight: "900" },
+  groupPoints: {
+    color: colors.lime,
+    fontSize: 11,
+    fontWeight: "900",
+    backgroundColor: "#1D2B16",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  glow: {
+    padding: 17,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#25354B",
+    overflow: "hidden",
+  },
+  clutchCard: { borderColor: "#586C2D" },
+  between: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 10,
+    gap: 6,
+  },
+  kicker: { ...type.overline, fontSize: 9, letterSpacing: 1.4 },
+  everyone: { color: colors.lime, fontSize: 8, fontWeight: "800" },
+  clutchBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginVertical: 17,
+  },
+  moon: {
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    backgroundColor: "#2D3522",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clutchTitle: {
+    fontFamily: "Manrope_800ExtraBold",
+    fontSize: 18,
+    color: "white",
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  muted: { fontSize: 10, color: colors.muted, lineHeight: 15 },
+  avatarStack: { flexDirection: "row", alignItems: "center" },
+  squadJoined: {
+    color: colors.muted,
+    fontSize: 9,
+    fontWeight: "700",
+    marginLeft: 13,
+  },
+  outlineButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    minHeight: 44,
+  },
+  limeText: { color: colors.lime, fontSize: 10, fontWeight: "800" },
+  section: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 7,
   },
   sectionTitle: {
+    color: "white",
     fontFamily: "Manrope_800ExtraBold",
-    fontSize: 19,
-    letterSpacing: -0.6,
-    color: colors.text,
+    fontSize: 17,
+    letterSpacing: -0.4,
   },
-  sectionMeta: { fontSize: 7, letterSpacing: 1, color: colors.dim },
-  stats: { flexDirection: "row", gap: 10 },
-  stat: {
-    flex: 1,
-    padding: 17,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
+  sample: {
+    fontSize: 7,
+    color: colors.dim,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+  },
+  positive: { flexDirection: "row", gap: 4, alignItems: "center" },
+  positiveText: { color: colors.emerald, fontSize: 8, fontWeight: "900" },
+  readiness: {
+    flexDirection: "row",
+    gap: 20,
+    alignItems: "center",
+    paddingTop: 18,
+    paddingBottom: 4,
+  },
+  readyTitle: {
+    fontFamily: "Manrope_800ExtraBold",
+    color: "white",
+    fontSize: 25,
+    lineHeight: 28,
+    letterSpacing: -0.8,
+  },
+  readySub: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 7 },
+  vitals: { flexDirection: "row", gap: 12, marginTop: 10 },
+  vital: { color: colors.dim, fontSize: 9 },
+  vitalValue: { color: "white", fontWeight: "900", fontSize: 12 },
+  scoreStrip: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.surface,
-    gap: 8,
-  },
-  scoreCard: { backgroundColor: colors.lime, borderColor: colors.lime },
-  statTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  pill: { fontFamily: "Manrope_800ExtraBold", fontSize: 8, letterSpacing: 0.5 },
-  score: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 43,
-    letterSpacing: -2,
-    color: colors.text,
-  },
-  unit: { fontSize: 12, letterSpacing: 0, color: "#526334" },
-  statNote: {
-    color: colors.muted,
-    fontSize: 10,
-    lineHeight: 15,
-    fontFamily: "Manrope_500Medium",
-  },
-  statLabel: {
-    color: colors.muted,
-    fontSize: 11,
-    fontFamily: "Manrope_600SemiBold",
-  },
-  number: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 27,
-    letterSpacing: -1,
-    color: colors.text,
-  },
-  challenge: {
-    padding: 17,
-    borderRadius: 20,
-    backgroundColor: "#EAEDE0",
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
-  },
-  challengeIcon: {
-    width: 42,
-    height: 48,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  challengeCopy: { flex: 1 },
-  challengeTitle: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 15,
-    color: colors.text,
-    marginVertical: 4,
-  },
-  link: { flexDirection: "row", gap: 6, alignItems: "center", minHeight: 44 },
-  linkText: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 11,
-    color: colors.accent,
-  },
-  squad: { flexDirection: "row", paddingVertical: 6 },
-  person: { flex: 1, alignItems: "center", gap: 6 },
-  personName: {
-    fontFamily: "Manrope_700Bold",
-    fontSize: 11,
-    color: colors.text,
-  },
-  personRecovery: { fontSize: 9, color: colors.muted },
-  actions: { flexDirection: "row", gap: 10 },
-  primary: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: colors.ink,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  primaryText: {
-    color: "#F8FAF3",
-    fontFamily: "Manrope_700Bold",
-    fontSize: 11,
-  },
-  secondary: {
-    flex: 1,
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 48,
-    borderRadius: 14,
+    padding: 15,
+    borderRadius: 19,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  fairScore: {
+    color: colors.cyan,
+    fontSize: 34,
+    fontWeight: "900",
+    letterSpacing: -1,
+  },
+  hundred: { fontSize: 12, color: colors.dim },
+  personalBest: { fontSize: 9, color: "#C4D8E6", marginBottom: 8 },
+  scoreNote: { color: colors.dim, fontSize: 7, marginTop: 6 },
+  rank: {
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "#202B16",
+    padding: 10,
+    borderRadius: 12,
   },
-  secondaryText: {
-    fontSize: 11,
-    fontFamily: "Manrope_700Bold",
-    color: colors.text,
+  rankNumber: { fontSize: 19, fontWeight: "900", color: colors.lime },
+  rankLabel: { fontSize: 7, fontWeight: "900", color: colors.lime },
+  metricRow: { flexDirection: "row", gap: 11 },
+  mini: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 14,
+    borderRadius: 20,
   },
-  sleepHeading: {
+  miniLabel: { fontSize: 8, letterSpacing: 0.6, fontWeight: "900" },
+  miniValue: {
+    color: "white",
+    fontSize: 24,
+    fontFamily: "Manrope_800ExtraBold",
+    letterSpacing: -0.8,
+    marginTop: 9,
+    marginBottom: 3,
+  },
+  streakStrip: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: "#442C22",
+    backgroundColor: "#1A1311",
+    padding: 13,
   },
-  sleepNumber: {
+  streak: { flexDirection: "row", gap: 6, alignItems: "center" },
+  streakNumber: { color: "#FED7AA", fontSize: 14, fontWeight: "900" },
+  streakDays: { fontSize: 8 },
+  streakLabel: {
+    color: "#B1886C",
+    fontSize: 7,
+    marginTop: 2,
+    letterSpacing: 0.5,
+  },
+  arenaRow: { flexDirection: "row", gap: 11 },
+  arena: { flex: 1, padding: 15, borderRadius: 20, borderWidth: 1 },
+  arenaTitle: {
+    color: "white",
     fontFamily: "Manrope_800ExtraBold",
-    fontSize: 34,
-    letterSpacing: -1,
-    color: colors.text,
-    marginTop: 8,
+    fontSize: 16,
+    marginTop: 11,
+    marginBottom: 4,
   },
-  sleepUnit: { fontSize: 20, color: colors.muted },
-  sleepBadge: {
-    flexDirection: "row",
-    gap: 5,
-    backgroundColor: "#F0EBF6",
-    padding: 8,
-    borderRadius: 10,
+  feedTitle: {
+    fontFamily: "Manrope_800ExtraBold",
+    fontSize: 20,
+    lineHeight: 25,
+    letterSpacing: -0.6,
+    color: "white",
+    marginTop: 10,
+    marginBottom: 5,
   },
-  sleepBadgeText: {
-    color: colors.violet,
-    fontSize: 9,
-    fontFamily: "Manrope_700Bold",
-  },
+  sleepValue: { color: "white", fontSize: 31, fontWeight: "900" },
   sleepChart: {
     flexDirection: "row",
+    alignItems: "flex-end",
     gap: 3,
     height: 55,
-    alignItems: "flex-end",
-    marginVertical: 12,
+    marginVertical: 13,
   },
-  sleepLegend: {
+  sleepLegend: { fontSize: 10, color: colors.muted },
+  backend: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  legendItem: { flexDirection: "row", gap: 4, alignItems: "center" },
-  legendDot: { height: 6, width: 6, borderRadius: 3 },
-  legendText: { color: colors.muted, fontSize: 8 },
-  legendValue: { color: colors.text, fontFamily: "Manrope_700Bold" },
-  wellbeing: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  wellItem: {
-    width: "48%",
-    flexGrow: 1,
-    padding: 17,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 18,
-    gap: 5,
-  },
-  wellLabel: {
-    fontFamily: "Manrope_600SemiBold",
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 5,
-  },
-  wellValue: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 23,
-    color: colors.text,
-    letterSpacing: -0.7,
-  },
-  editorial: {
-    flexDirection: "row",
-    backgroundColor: "#E0E7D1",
-    borderRadius: 20,
-    padding: 22,
-    overflow: "hidden",
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 5,
+    gap: 7,
+    padding: 8,
   },
-  editorialCopy: { flex: 1 },
-  editorialTitle: {
-    fontFamily: "Manrope_800ExtraBold",
-    fontSize: 27,
-    lineHeight: 31,
-    letterSpacing: -1,
-    color: colors.text,
-    marginTop: 12,
-  },
-  endnote: {
-    fontSize: 8,
-    letterSpacing: 1.3,
-    color: colors.dim,
-    textAlign: "center",
-    marginTop: 8,
-  },
-  storyPage: { flex: 1, padding: 26, backgroundColor: "#E5ECD8" },
-  storyHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  backendText: { color: colors.dim, fontSize: 10, flexShrink: 1 },
+  storyPage: { flex: 1, padding: 22, backgroundColor: "#111B30" },
+  storyProgress: { flexDirection: "row", gap: 5, marginBottom: 18 },
+  storyTrack: {
+    height: 3,
+    backgroundColor: "#324157",
+    flex: 1,
+    borderRadius: 2,
   },
   close: {
-    width: 44,
     height: 44,
+    width: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  storyBody: { flex: 12, justifyContent: "center" },
+  storyMain: { flex: 1, justifyContent: "center", alignItems: "center" },
   storyTitle: {
+    color: "white",
     fontFamily: "Manrope_800ExtraBold",
-    fontSize: 48,
-    letterSpacing: -2,
-    lineHeight: 54,
-    color: colors.text,
-    marginVertical: 24,
+    fontSize: 34,
+    lineHeight: 39,
+    textAlign: "center",
+    marginTop: 17,
+    letterSpacing: -1,
   },
-  storySub: { ...type.body, lineHeight: 24 },
-  storyDots: { flexDirection: "row", gap: 6, marginTop: 30 },
-  storyDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#C2CDB1",
+  storyDescription: {
+    fontSize: 14,
+    lineHeight: 23,
+    color: colors.muted,
+    textAlign: "center",
+    marginTop: 18,
+  },
+  storyNext: {
+    backgroundColor: colors.lime,
+    borderRadius: 14,
+    padding: 16,
+    alignItems: "center",
+    marginBottom: 18,
   },
 });

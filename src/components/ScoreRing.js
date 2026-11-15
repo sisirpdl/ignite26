@@ -26,7 +26,7 @@ export default function ScoreRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#4C5B3F"
+          stroke="#1E3040"
           strokeWidth={stroke}
           fill="none"
         />
@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
   center: { alignItems: "center" },
   value: { fontSize: 36, fontWeight: "900", fontVariant: ["tabular-nums"] },
   label: {
-    color: "#D8E5C8",
+    color: "#B6C9DC",
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: "800",

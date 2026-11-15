@@ -4,10 +4,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../styles/theme";
 const tabs = [
-  ["dashboard", "Today", "sunny-outline"],
-  ["leaderboard", "Standings", "podium-outline"],
-  ["chat", "Squad", "chatbubbles-outline"],
-  ["map", "Explore", "compass-outline"],
+  ["dashboard", "Daily", "pulse-outline"],
+  ["leaderboard", "Challenge", "podium-outline"],
+  ["chat", "Group Feed", "chatbubbles-outline"],
+  ["map", "Maps", "map-outline"],
 ];
 export default function BottomTabs({ active, onChange, unread }) {
   const insets = useSafeAreaInsets();
@@ -26,7 +26,7 @@ export default function BottomTabs({ active, onChange, unread }) {
             <Ionicons
               name={icon}
               size={23}
-              color={active === key ? colors.text : colors.dim}
+              color={active === key ? colors.cyan : colors.dim}
             />
             {key === "chat" && unread > 0 && <View style={s.badge} />}
           </View>
@@ -53,9 +53,13 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  selected: { backgroundColor: colors.lime },
+  selected: {
+    backgroundColor: "#123144",
+    borderWidth: 1,
+    borderColor: "#21566B",
+  },
   label: { fontFamily: "Manrope_600SemiBold", fontSize: 10, color: colors.dim },
-  labelOn: { color: colors.text, fontFamily: "Manrope_800ExtraBold" },
+  labelOn: { color: colors.cyan, fontFamily: "Manrope_800ExtraBold" },
   badge: {
     position: "absolute",
     right: 9,

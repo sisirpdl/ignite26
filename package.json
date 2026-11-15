@@ -12,7 +12,9 @@
     "doctor": "expo-doctor",
     "test:math": "node fair-math.test.js",
     "build:preview": "EXPO_NO_TELEMETRY=1 expo export --platform web",
-    "preview": "python3 -m http.server 8082 --bind 127.0.0.1 --directory dist"
+    "preview": "node server/server.cjs",
+    "server": "node server/server.cjs",
+    "test:server": "node --test server/server.test.cjs"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.3",
@@ -35,6 +37,6 @@
     "eslint-config-expo": "~58.0.4"
   },
   "engines": {
-    "node": ">=22.13.0"
+    "node": ">=24.0.0"
   }
 }

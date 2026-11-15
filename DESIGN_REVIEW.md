@@ -1,50 +1,28 @@
-# Clutch Studio — frontend review
+# Clutch Arena revision
 
-Branch: `design/clutch-studio`, based on `origin/react-native-conversion`.
+Branch: `design/clutch-arena`.
 
-## What was reviewed
+## User direction
 
-- `main`: original single-page social fitness prototype and Fair Math engine.
-- `feat/clutch-logo`: generated logo direction.
-- `react-native-conversion`: Expo iOS/Android migration and interactive demo flows.
+Return to the original HTML app's gamified identity. Keep React Native iOS/Android support, make smaller UI improvements, and give the HTML and native versions a backend.
 
-## Direction
+The remote branches inspected were `main`, `feat/clutch-logo`, `react-native-conversion`, and `design/clutch-studio`. No branch named `dev` or `devs` existed at the time of review. This revision branches from Studio to retain its working native flows, tab-state retention, poll fixes, route fixes, and accessible controls.
 
-A premium, approachable training club: paper-colored surfaces, forest ink, lime accents, Manrope typography, and a compact vector brand mark. Today prioritizes readiness, personal effort, the next squad challenge, and recovery. Standings, Squad, Explore, profiles, and the arena share the new palette.
+## Frontend
 
-## Preserved frontend functions
+Restored near-black surfaces, neon lime/cyan/purple accents, story rings, the shared nightly Clutch card, recovery rings, dense metric cards, streak counters, duels, Phone Down and squad-feed shortcuts. Native maps are unchanged; web gets a dark schematic. Challenge shortcuts now open the corresponding arena section. Profile/ranking fixes and responsive layouts are retained.
 
-- Readiness and Fair Score from the existing normalization engine; steps, strain, sleep, stress, battery, screen time, VO₂ max.
-- Four ranking chart ranges and member profiles.
-- Local squad messages, simulated replies, reactions, polls, view-once snaps, and quick replies.
-- Duels, squad challenges, bonuses, overnight Clutch, Phone Down, and reward progress.
-- Native route maps, location permission, rally points, turf, and ghost runs.
-- Local profile preferences, streaks, badges, and daily spotlight.
+## Backend
 
-Chat and map state now survive tab switches. Poll votes are mutually exclusive. Profile rank/total comes from the leaderboard. Profile social actions respond in the demo. A runner now follows the selected route, and GPS failures show feedback.
+Added a local Node 24 / SQLite API with isolated anonymous workspaces, hashed bearer tokens, document revisions, request limits, validation, and a Fair Math endpoint. Both the original HTML and native UI save state to it. The clients have different schemas and do not mirror each other's feeds. Real multiplayer, account identity and health ingestion are not implemented.
 
-## Review locally
+## Verification
 
-Use Node 22.13+ (Node 24 recommended).
+- Fair Math regression suite.
+- API integration test: unauthorized access, disallowed origins, workspace isolation, revision conflicts, input validation, and database persistence across a service restart.
+- Expo exports for web, iOS and Android.
+- Browser checks: original HTML message persisted after full reload; native message and simulated reply persisted after full reload.
+- Native arena progress and completed run count persisted after full reload.
+- Native app preview at phone sizes; original HTML backend status inspected.
 
-```sh
-npm ci
-npm run build:preview
-npm run preview
-```
-
-Open http://127.0.0.1:8082. The browser map is a labeled, interactive route schematic. iOS/Android retain `react-native-maps`; the schematic is isolated in a `.web.js` platform file.
-
-For native testing: `npm start`, then open in a compatible Expo Go client or use `npm run ios` / `npm run android`. If macOS reports an EMFILE watcher limit, install/configure Watchman or review the static export instead.
-
-## Validation
-
-- Existing `node fair-math.test.js`: passed.
-- Expo production exports for web, iOS, Android: passed.
-- Browser checks: phone layouts at 320 and 390 CSS pixels; tablet DOM width at 768 (no horizontal overflow).
-- Interactive checks: chat send/reply and retention across tabs; navigation; standings; profile totals; route selection/start/end; duel creation/settlement.
-- Physical iOS/Android devices, safe-area behavior on actual hardware, permission dialogs, and native map rendering still require device QA. Bundle export is not a signed native build.
-
-## Frontend-only boundary
-
-This is a design-review demo. Health readings, chat participants, races, scores and game outcomes are seeded/simulated, not connected services. Chat and games are session state; only profile preferences persist across reloads. Existing challenge scoring and badge systems are independent demo state, not a unified ledger. No backend, accounts, real wearable synchronization, push notifications, real-time location sharing or production health-data storage were added. Backend work waits for design approval.
+No signed native build or physical-device test was performed. The API is a development foundation; no public deployment was performed. See README for commands and boundaries.

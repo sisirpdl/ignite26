@@ -1,3 +1,4 @@
+import { useBackendState } from "../data/BackendProvider";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useEffect, useState } from "react";
 import {
@@ -25,22 +26,62 @@ const bonuses = [
   ["📵", "Phone face-down for 20 minutes", 1],
 ];
 
-export default function GameModal({ visible, onClose, onToast }) {
+const gameInitial = {
+  score: { 1: 0, 2: 3, 3: -2, 4: 1 },
+  metric: "steps",
+  opponent: 2,
+  duel: false,
+  challenge: false,
+  clutch: "upcoming",
+  phoneUntil: 0,
+  sent: 0,
+  badges: { clutch: 1, duel: 0, phone: 0 },
+};
+function useGameField(key) {
+  const [game, setGame] = useBackendState("game", gameInitial);
+  return [
+    game[key] ?? gameInitial[key],
+    (action) =>
+      setGame((previous) => ({
+        ...previous,
+        [key]:
+          typeof action === "function"
+            ? action(previous[key] ?? gameInitial[key])
+            : action,
+      })),
+  ];
+}
+
+export default function GameModal({
+  visible,
+  onClose,
+  onToast,
+  initialPool = "duels",
+}) {
   const [pool, setPool] = useState("duels");
-  const [score, setScore] = useState({ 1: 0, 2: 3, 3: -2, 4: 1 });
-  const [metric, setMetric] = useState("steps");
-  const [opponent, setOpponent] = useState(2);
-  const [duel, setDuel] = useState(false);
-  const [challenge, setChallenge] = useState(false);
-  const [clutch, setClutch] = useState("upcoming");
-  const [phone, setPhone] = useState(0);
-  const [sent, setSent] = useState(0);
-  const [badges, setBadges] = useState({ clutch: 1, duel: 0, phone: 0 });
   useEffect(() => {
-    if (!phone) return undefined;
-    const id = setInterval(() => setPhone((v) => Math.max(0, v - 1)), 1000);
-    return () => clearInterval(id);
-  }, [phone]);
+    if (visible) setPool(initialPool);
+  }, [visible, initialPool]);
+  const [score, setScore] = useGameField("score");
+  const [metric, setMetric] = useGameField("metric");
+  const [opponent, setOpponent] = useGameField("opponent");
+  const [duel, setDuel] = useGameField("duel");
+  const [challenge, setChallenge] = useGameField("challenge");
+  const [clutch, setClutch] = useGameField("clutch");
+  const [phoneUntil, setPhoneUntil] = useGameField("phoneUntil");
+  const [clock, setClock] = useState(Date.now());
+  const phone = Math.max(0, Math.ceil((phoneUntil - clock) / 1000));
+  const setPhone = (seconds) => {
+    setClock(Date.now());
+    setPhoneUntil(seconds ? Date.now() + seconds * 1000 : 0);
+  };
+  const [sent, setSent] = useGameField("sent");
+  const [badges, setBadges] = useGameField("badges");
+  useEffect(() => {
+    if (!phoneUntil) return;
+    const timer = setInterval(() => setClock(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [phoneUntil]);
   const canSend = () => {
     if (sent >= 3) {
       onToast("You’ve sent all 3 challenges for today");

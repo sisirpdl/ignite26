@@ -1,3 +1,4 @@
+import { useBackendState } from "../data/BackendProvider";
 import React, { useEffect, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -22,7 +23,7 @@ export default function ChatScreen({
   onOpenGame,
   onToast,
 }) {
-  const [messages, setMessages] = useState(initialMessages);
+  const [messages, setMessages] = useBackendState("messages", initialMessages);
   const [text, setText] = useState("");
   const [typing, setTyping] = useState(false);
   const [sheet, setSheet] = useState(false);
@@ -41,7 +42,7 @@ export default function ChatScreen({
   const person = (id) => squad.find((member) => member.id === id);
   const nextId = (prefix) => {
     messageNumber.current += 1;
-    return `${prefix}${messageNumber.current}`;
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   };
   const react = (id, emoji) =>
     setMessages((all) =>
@@ -137,7 +138,7 @@ export default function ChatScreen({
       <View style={styles.header}>
         <View>
           <Text style={type.overline}>THE SQUAD</Text>
-          <Text style={styles.title}>Your people.</Text>
+          <Text style={styles.title}>Squad feed</Text>
         </View>
         <Pressable
           accessibilityRole="button"
@@ -209,6 +210,7 @@ export default function ChatScreen({
         </Pressable>
         <TextInput
           accessibilityLabel="Message the squad"
+          maxLength={4000}
           value={text}
           onChangeText={setText}
           placeholder="Message the squad…"
@@ -425,7 +427,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     borderBottomWidth: 1,
-    borderColor: "#EDEEE7",
+    borderColor: "#101725",
   },
   title: { color: colors.text, fontWeight: "900", fontSize: 22 },
   members: { flexDirection: "row", alignItems: "center" },
@@ -445,7 +447,7 @@ const styles = StyleSheet.create({
   },
   system: {
     alignSelf: "center",
-    backgroundColor: "#EDEEE7",
+    backgroundColor: "#101725",
     borderRadius: 12,
     padding: 10,
     maxWidth: "93%",
@@ -477,19 +479,19 @@ const styles = StyleSheet.create({
     padding: 11,
   },
   mineBubble: {
-    backgroundColor: "#E4EDCF",
+    backgroundColor: "#123548",
     borderBottomLeftRadius: 17,
     borderBottomRightRadius: 4,
-    borderColor: "#D3DDBD",
+    borderColor: "#155E75",
   },
   messageText: { color: colors.text, fontSize: 13, lineHeight: 18 },
   time: { color: colors.dim, fontSize: 9, marginTop: 4 },
   activity: {
     padding: 12,
     borderRadius: 17,
-    backgroundColor: "#E6EDE4",
+    backgroundColor: "#102A35",
     borderWidth: 1,
-    borderColor: "#D4DFD0",
+    borderColor: "#164E63",
   },
   activityTitle: { color: colors.text, fontWeight: "900", fontSize: 13 },
   stats: { flexDirection: "row", gap: 8, marginTop: 8 },
@@ -501,7 +503,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 3,
     borderRadius: 10,
-    backgroundColor: "#EDEEE7",
+    backgroundColor: "#101725",
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -549,7 +551,7 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: "flex-end",
     borderTopWidth: 1,
-    borderColor: "#EDEEE7",
+    borderColor: "#101725",
   },
   plus: {
     width: 44,
@@ -569,7 +571,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     color: colors.text,
     borderRadius: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#101725",
     borderWidth: 1,
     borderColor: colors.border,
     fontSize: 13,
@@ -623,7 +625,7 @@ const styles = StyleSheet.create({
     gap: 9,
     padding: 12,
     borderRadius: 16,
-    backgroundColor: "#ECE6F3",
+    backgroundColor: "#30204D",
     borderWidth: 1,
     borderColor: "#8b5cf6",
   },
@@ -634,7 +636,7 @@ const styles = StyleSheet.create({
   },
   snapCardEmoji: { fontSize: 26 },
   snapCardTitle: { color: colors.text, fontSize: 12, fontWeight: "900" },
-  snapCardSub: { color: "#78669F", fontSize: 9, marginTop: 3 },
+  snapCardSub: { color: "#D8B4FE", fontSize: 9, marginTop: 3 },
   snapView: { flex: 1, backgroundColor: "#34215a", padding: 16 },
   snapProgress: {
     height: 4,

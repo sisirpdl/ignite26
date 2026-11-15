@@ -1,3 +1,4 @@
+import { useBackendStatus } from "./data/BackendProvider";
 import React, { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -20,6 +21,12 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
   const [toast, setToast] = useState("");
   const [gameOpen, setGameOpen] = useState(false);
   const metrics = dailyMetrics();
+  const backend = useBackendStatus();
+  const [gameTab, setGameTab] = useState("duels");
+  const openGame = (pool = "duels") => {
+    setGameTab(pool);
+    setGameOpen(true);
+  };
   const openProfile = (person = squad.find((member) => member.id === ME)) =>
     setProfile(person);
   const flash = (message) => {
@@ -46,7 +53,7 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
                 metrics={metrics}
                 onOpenProfile={openProfile}
                 onTabChange={changeTab}
-                onOpenGame={() => setGameOpen(true)}
+                onOpenGame={openGame}
                 onToast={flash}
               />
             </View>
@@ -63,7 +70,7 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
               <ChatScreen
                 onUnread={(count) => setUnread(tab === "chat" ? 0 : count)}
                 onProfile={openProfile}
-                onOpenGame={() => setGameOpen(true)}
+                onOpenGame={openGame}
                 onToast={flash}
               />
             </View>
@@ -74,6 +81,17 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
             </View>
           )}
         </View>
+        <Text
+          accessibilityLiveRegion="polite"
+          style={{
+            textAlign: "center",
+            color: backend.error ? colors.rose : colors.dim,
+            fontSize: 9,
+            padding: 4,
+          }}
+        >
+          {backend.error || backend.status}
+        </Text>
         <BottomTabs active={tab} onChange={changeTab} unread={unread} />
         {toast ? (
           <View pointerEvents="none" style={styles.toast}>
@@ -86,10 +104,11 @@ export default function ClutchApp({ preferences, onPreferencesChange }) {
           onClose={() => setProfile(null)}
           preferences={safePreferences}
           onPreferencesChange={onPreferencesChange}
-          onDuel={() => setGameOpen(true)}
+          onDuel={() => openGame("duels")}
           onToast={flash}
         />
         <GameModal
+          initialPool={gameTab}
           visible={gameOpen}
           onClose={() => setGameOpen(false)}
           onToast={flash}

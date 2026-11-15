@@ -202,7 +202,7 @@ function Action({ label, color, onPress }) {
       <Text
         style={[
           styles.actionText,
-          { color: color === colors.surface ? "#20251D" : "#FFFFFF" },
+          { color: color === colors.surface ? "#F8FAFC" : "#030508" },
         ]}
       >
         {label}

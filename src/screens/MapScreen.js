@@ -1,3 +1,4 @@
+import { useBackendState } from "../data/BackendProvider";
 import React, { useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -132,6 +133,7 @@ const territories = [
 
 export default function MapScreen({ onToast }) {
   const mapRef = useRef(null);
+  const [, setRunHistory] = useBackendState("runs", []);
   const [mode, setMode] = useState("live");
   const [selected, setSelected] = useState("r1");
   const [running, setRunning] = useState(null);
@@ -227,8 +229,19 @@ export default function MapScreen({ onToast }) {
     onToast(`Racing ${route.name}’s ghost`);
   };
   const finishRun = () => {
+    setRunHistory((all) =>
+      [
+        {
+          id: `run-${Date.now()}`,
+          routeId: running.id,
+          seconds,
+          completedAt: new Date().toISOString(),
+        },
+        ...all,
+      ].slice(0, 100),
+    );
     onToast(
-      `Run saved · ${formatTime(seconds)} · +${Math.max(2, Math.round(seconds / 20))} hexes`,
+      `Run finished · ${formatTime(seconds)} · +${Math.max(2, Math.round(seconds / 20))} hexes`,
     );
     setRunning(null);
     setSeconds(0);

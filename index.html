@@ -7,7 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
-    <script src="./fair-math.js"></script>
+    <script src="/fair-math.js"></script>
+    <script src="/backend-client.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
@@ -644,6 +645,18 @@
             const [gameStats, setGameStats] = useState({ clutchWins: 1, duelWins: 0, phoneDownSurvived: 0 });
             const [draft, setDraft] = useState({ metric: 'steps', opp: 2 });
             const [duels, setDuels] = useState([{ id: 'd0', opp: 2, metric: 'steps', status: 'live', fixed: true, theirs: 9880, endsLabel: 'tonight' }]);
+            const [backendStatus,setBackendStatus]=useState('Connecting backend…');
+            const backendRef=useRef(null), backendBusy=useRef(false), backendLast=useRef(''), backendSnapshot=useRef(null);
+            backendSnapshot.current={messages,group,scoreAdj,scoreEvents,clutches,sentCount,gameStats,duels,seenStories};
+            useEffect(()=>{let cancelled=false;
+                ClutchStore.open('html').then(store=>{if(cancelled)return;const v=store.value;
+                    if(v){if(v.messages){setMessages(v.messages);_id=Math.max(_id,...v.messages.map(m=>Number(m.id)||0))+1;}if(v.group)setGroup(v.group);if(v.scoreAdj)setScoreAdj(v.scoreAdj);if(v.scoreEvents)setScoreEvents(v.scoreEvents);if(v.clutches)setClutches(v.clutches);if(v.sentCount!==undefined)setSentCount(v.sentCount);if(v.gameStats)setGameStats(v.gameStats);if(v.duels)setDuels(v.duels);if(v.seenStories)setSeenStories(v.seenStories);}
+                    backendRef.current=store;backendLast.current=JSON.stringify(v||backendSnapshot.current);setBackendStatus('Backend connected · demo');
+                }).catch(e=>setBackendStatus('Backend unavailable — '+e.message));
+                const timer=setInterval(async()=>{if(!backendRef.current||backendBusy.current)return;const snapshot=JSON.stringify(backendSnapshot.current);if(snapshot===backendLast.current)return;backendBusy.current=true;
+                    try{await backendRef.current.save(JSON.parse(snapshot));backendLast.current=snapshot;if(!cancelled)setBackendStatus('Saved to backend · demo');}catch(e){if(!cancelled)setBackendStatus('Not saved — '+e.message);if(e.message.includes('another tab'))backendRef.current=null;}finally{backendBusy.current=false;}
+                },1000);return()=>{cancelled=true;clearInterval(timer);};
+            },[]);
             const messagesRef = useRef(messages);
             const duelsRef = useRef(duels);
             const settingsRef = useRef(settings);
@@ -1439,6 +1452,7 @@
             // ---------- Layout ----------
             return (
                 <div className="relative flex flex-col h-full bg-[#05070a] text-slate-100 select-none">
+                    <div role="status" className="text-[10px] text-cyan-300 text-center py-1 bg-slate-900">{backendStatus}</div>
 
 
                     {/* ================= SELF HUB ================= */}

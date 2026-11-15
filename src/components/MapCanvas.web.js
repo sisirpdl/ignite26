@@ -21,7 +21,7 @@ const MapCanvas = forwardRef(function MapCanvas(
   useImperativeHandle(ref, () => ({ animateToRegion: () => {} }));
   return (
     <View
-      style={[style, { backgroundColor: "#E3E9DC" }]}
+      style={[style, { backgroundColor: "#101E31" }]}
       onLayout={(e) => setSize(e.nativeEvent.layout)}
     >
       <Svg
@@ -44,7 +44,7 @@ const MapCanvas = forwardRef(function MapCanvas(
       >
         <Path
           d="M-10 270 Q100 150 150 215T420 110"
-          stroke="#B8D4CD"
+          stroke="#173B51"
           strokeWidth={42}
           fill="none"
         />
@@ -52,20 +52,20 @@ const MapCanvas = forwardRef(function MapCanvas(
           <Path
             key={x}
             d={`M${x} 0L${x + 40} 400 M0 ${x}L400 ${x + 40}`}
-            stroke="#F8F9F2"
+            stroke="#283C55"
             strokeWidth={12}
           />
         ))}
         <Path
           d="M0 320Q140 260 400 300M70 0Q160 130 360 400"
-          stroke="#CDD5BF"
+          stroke="#38516E"
           strokeWidth={3}
           fill="none"
         />
-        <SvgText x={18} y={75} fill="#758465" fontSize={10}>
+        <SvgText x={18} y={75} fill="#91A7C4" fontSize={10}>
           RIVERSIDE PARK
         </SvgText>
-        <SvgText x={258} y={330} fill="#758465" fontSize={10}>
+        <SvgText x={258} y={330} fill="#91A7C4" fontSize={10}>
           THE NEIGHBORHOOD
         </SvgText>
         {children}
@@ -128,8 +128,8 @@ const s = StyleSheet.create({
     bottom: 7,
     right: 12,
     fontSize: 8,
-    color: "#46553B",
-    backgroundColor: "#F5F5EF",
+    color: "#94A3B8",
+    backgroundColor: "#0B1423",
     padding: 5,
     borderRadius: 5,
   },

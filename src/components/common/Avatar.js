@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, View } from "react-native";
 export default function Avatar({ person, size = 40 }) {
-  const fills = ["#E7EFCF", "#DAEAE4", "#E9E2F1", "#F4E3D2"];
+  const fills = ["#26381B", "#153B4F", "#35264F", "#493121"];
   return (
     <View
       accessibilityLabel={`${person.name} avatar`}
@@ -13,12 +13,12 @@ export default function Avatar({ person, size = 40 }) {
         alignItems: "center",
         justifyContent: "center",
         borderWidth: 2,
-        borderColor: "#FFFFFF",
+        borderColor: person.color,
       }}
     >
       <Text
         style={{
-          color: "#30382B",
+          color: person.color,
           fontFamily: "Manrope_800ExtraBold",
           fontSize: size * 0.34,
         }}

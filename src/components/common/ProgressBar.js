@@ -21,9 +21,9 @@ export default function ProgressBar({ value, color = "#22d3ee", height = 8 }) {
 const styles = StyleSheet.create({
   track: {
     overflow: "hidden",
-    backgroundColor: "#E6E8DE",
+    backgroundColor: "#1C293B",
     borderWidth: 1,
-    borderColor: "#E6E8DE",
+    borderColor: "#1C293B",
   },
   fill: { height: "100%" },
 });

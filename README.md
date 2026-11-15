@@ -1,83 +1,82 @@
-# Clutch Studio
+# Clutch Arena
 
-Clutch is a native iOS and Android migration of the original social-fitness web prototype. This design branch introduces a paper-and-ink visual system with lime accents while retaining the squad-focused experience: Fair Score/recovery dashboard, ranked month challenge, squad chat with polls and reactions, live location/turf/routing, ghost races, and profile streaks/badges.
+A gamified social-fitness app for iOS, Android and web, based on the original HTML prototype. This branch restores the original dark surfaces, neon accents, story circles, squad challenges and dense health cards, while keeping the native navigation and interaction fixes.
 
-See `DESIGN_REVIEW.md` for the design direction, browser preview, verification, and frontend-only boundaries.
+## Run both versions with the backend
 
-## Stack
+Requires **Node 24+** (the API uses built-in `node:sqlite`).
 
-- Expo SDK 58, React Native, JavaScript
-- `react-native-maps` for native Google Maps (Android) / Apple Maps (iOS)
-- `expo-location` for the explicit **Use my location** action
-- `@react-native-async-storage/async-storage` for local preferences
-- `react-native-svg` for the native score ring
-- `@expo-google-fonts/manrope` to retain the original typography
-
-## Prerequisites
-
-- Node.js 22.13 or newer
-- npm 10 or newer
-- Expo Go on a physical device, or an Android emulator / iOS Simulator
-- For iOS simulator development, macOS with Xcode
-
-## Install
-
-```bash
-npm install
-npx expo install --fix
-npx expo-doctor
+```sh
+npm ci
+npm run build:preview
+npm run server
 ```
 
-`expo install` resolves Expo-compatible native package versions; run it after updating the Expo SDK.
+- React Native web: http://127.0.0.1:8787/
+- Original HTML with persistence: http://127.0.0.1:8787/legacy
+- API health: http://127.0.0.1:8787/api/health
 
-## Run
+Both versions now use the same development API. Their demo state uses separate document schemas: edits in the HTML feed do not appear in the native feed. Each browser/device receives a private demo workspace token. No sign-up or external service keys are needed for local review.
 
-```bash
+## Native iOS / Android
+
+Keep the backend running, then start Expo in a second terminal:
+
+```sh
 npm start
-npm run android
+# or
 npm run ios
-npm run web
+npm run android
 ```
 
-`npm start` prints a QR code. Scan it with Expo Go to test on a physical Android or iOS device. The map works in Expo Go; a store build requires native map credentials as described below.
+The default API address is `127.0.0.1:8787` on iOS Simulator/web and `10.0.2.2:8787` on the Android emulator.
 
-## Quality checks
+For a physical phone on the same trusted Wi-Fi network, bind the API to your computer's LAN address and set the native client URL before starting Expo:
 
-```bash
+```sh
+HOST=0.0.0.0 npm run server
+EXPO_PUBLIC_API_URL=http://YOUR_COMPUTER_LAN_IP:8787 npm start
+```
+
+Use a compatible Expo Go client or a development build. Physical-device and signed-store builds still need QA; production requires HTTPS and platform map configuration. The React Native app uses native maps on iOS/Android. The browser-only map is explicitly labeled as a demo route schematic.
+
+## What persists
+
+- Native messages (including polls/reactions), profile preferences, arena progress and completed run summaries.
+- HTML feed, selected group, score adjustments/events, duels, Clutch challenges, badge progress and seen stories.
+- SQLite database under `server/data/clutch.sqlite`, ignored by Git.
+- A private workspace token stored locally; only its hash is stored in SQLite.
+
+A save indicator shows pending, successful and failed writes. Wait for **Saved to backend** before closing the app. Failed network writes retry; revision conflicts are reported rather than silently overwriting another tab. State is not synchronized live between clients. Native in-progress maps/races are session state; completed runs are persisted.
+
+## Backend
+
+The dependency-free Node HTTP service serves both frontends and these endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | Development API health |
+| `POST /api/session` | Create a private anonymous demo workspace |
+| `GET /api/state` | Read the workspace documents (Bearer token required) |
+| `PUT /api/state/:key` | Save `{revision, value}` with optimistic concurrency |
+| `POST /api/score` | Run Fair Math against submitted observations |
+
+Allowed document keys: `messages`, `preferences`, `game`, `runs`, `html`. The API validates document shape, limits payloads and request rate, restricts browser origins, and isolates sessions. A stale revision returns HTTP 409. The scoring endpoint labels submitted data as unverified; it is not proof of real wearable activity.
+
+Configuration: `PORT` (8787), `HOST` (127.0.0.1), `CLUTCH_DB` (database path), `ALLOWED_ORIGINS` (comma-separated browser origins), and `EXPO_PUBLIC_API_URL` (client address, baked into Expo exports).
+
+## Checks
+
+```sh
 npm run test:math
-npm run lint
-npm run doctor
+npm run test:server
+EXPO_NO_TELEMETRY=1 npx expo export --platform all
 ```
 
-## Production builds
+See `DESIGN_REVIEW.md` for the review record.
 
-Install and sign in to EAS once:
+## Development scope
 
-```bash
-npm install --global eas-cli
-eas login
-eas build:configure
-eas build --platform android
-eas build --platform ios
-```
+This is a **persistent development prototype**, not a production multiplayer service. Squad members, wearable readings, messages from teammates, race movement and game settlements are simulated. Document persistence is not a server-authoritative game ledger. Production work still includes account authentication and recovery, real squad membership, secure device credentials, health-provider ingestion, verified scoring/settlement, real-time events, backups, observability and deployment. Do not expose the development API publicly or use it for real health data.
 
-For Android Google Maps in a production build, create a Google Cloud project, enable the Maps SDK for Android, then add its key to the `react-native-maps` Expo config plugin. iOS uses Apple Maps by default. Do not commit API keys; store them in EAS secrets/app configuration.
-
-## Structure
-
-```
-App.js                  app entry and persistent preference bootstrap
-src/ClutchApp.js        app coordination, tabs, profile overlay, toast
-src/screens/            Dashboard, leaderboard, chat, map, profile
-src/components/         reusable UI and common primitives
-src/constants/data.js   demo squad, routes, and feed data
-src/styles/theme.js     design tokens
-src/utils/metrics.js    bridges the existing Fair Math engine into the app
-fair-math.js            original tested score-normalization engine
-```
-
-## Notes
-
-- The original app is a deterministic demo and has no real wearable, chat, or server backend. Native interactions remain local/demo state; production health-provider integrations and real-time APIs need their own authenticated services.
-- The original Leaflet map is migrated to a genuine native map. The locations, route geometry, turf grid, and ghost run remain demo data until a real activity/location provider is connected.
-- Screen-time sharing stays privacy-preserving: only the original pass/fail behavior should be synced to teammates in a backend implementation.
+The original HTML file still uses CDN dependencies. Serve it through the backend; opening it with `file://` does not connect the API.

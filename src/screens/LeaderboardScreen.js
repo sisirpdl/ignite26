@@ -31,9 +31,9 @@ export default function LeaderboardScreen({ onProfile }) {
     >
       <View>
         <Text style={type.overline}>THE SQUAD</Text>
-        <Text style={styles.title}>Friendly competition.</Text>
+        <Text style={styles.title}>Month Challenge</Text>
         <Text style={styles.sub}>
-          Different baselines. One level playing field.
+          Your effort. Your baseline. Your climb to #1.
         </Text>
       </View>
       <View style={styles.ranges}>
@@ -180,7 +180,7 @@ function ChallengeChart({ people, range }) {
             x2={width - right}
             y1={top + (height - top - bottom) * fraction}
             y2={top + (height - top - bottom) * fraction}
-            stroke="#D7DCD0"
+            stroke="#26364C"
             strokeDasharray="4 5"
           />
         ))}
