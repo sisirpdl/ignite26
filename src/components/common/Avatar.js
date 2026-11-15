@@ -1,7 +1,14 @@
-import React from "react";
-import { Text, View } from "react-native";
+import React, { useState } from "react";
+import { Image, Text, View } from "react-native";
+const portraits = {
+  Kai: require("../../../assets/avatars/kai.png"),
+  Nova: require("../../../assets/avatars/nova.png"),
+  Rio: require("../../../assets/avatars/rio.png"),
+  Zane: require("../../../assets/avatars/zane.png"),
+};
+export const avatarSource = (person) => portraits[person.avatar];
 export default function Avatar({ person, size = 40 }) {
-  const fills = ["#26381B", "#153B4F", "#35264F", "#493121"];
+  const [failed, setFailed] = useState(false);
   return (
     <View
       accessibilityLabel={`${person.name} avatar`}
@@ -9,22 +16,28 @@ export default function Avatar({ person, size = 40 }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: fills[(person.id - 1) % 4],
-        alignItems: "center",
-        justifyContent: "center",
+        overflow: "hidden",
+        backgroundColor: person.color,
         borderWidth: 2,
         borderColor: person.color,
+        alignItems: "center",
+        justifyContent: "center",
       }}
     >
-      <Text
-        style={{
-          color: person.color,
-          fontFamily: "Manrope_800ExtraBold",
-          fontSize: size * 0.34,
-        }}
-      >
-        {person.name.slice(0, 2).toUpperCase()}
-      </Text>
+      {failed || !avatarSource(person) ? (
+        <Text
+          style={{ fontSize: size * 0.42, fontWeight: "900", color: "#030508" }}
+        >
+          {person.name[0]}
+        </Text>
+      ) : (
+        <Image
+          source={avatarSource(person)}
+          onError={() => setFailed(true)}
+          style={{ width: size, height: size }}
+          accessibilityLabel={`${person.name} character`}
+        />
+      )}
     </View>
   );
 }

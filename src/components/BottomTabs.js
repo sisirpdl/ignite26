@@ -12,40 +12,54 @@ const tabs = [
 export default function BottomTabs({ active, onChange, unread }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[s.wrap, { paddingBottom: Math.max(12, insets.bottom) }]}>
-      {tabs.map(([key, label, icon]) => (
-        <Pressable
-          key={key}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: active === key }}
-          accessibilityLabel={label}
-          onPress={() => onChange(key)}
-          style={s.tab}
-        >
-          <View style={[s.icon, active === key && s.selected]}>
-            <Ionicons
-              name={icon}
-              size={23}
-              color={active === key ? colors.cyan : colors.dim}
-            />
-            {key === "chat" && unread > 0 && <View style={s.badge} />}
-          </View>
-          <Text style={[s.label, active === key && s.labelOn]}>{label}</Text>
-        </Pressable>
-      ))}
+    <View style={{ paddingBottom: Math.max(10, insets.bottom), paddingTop: 5 }}>
+      <View style={s.wrap}>
+        {tabs.map(([key, label, icon]) => (
+          <Pressable
+            key={key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active === key }}
+            accessibilityLabel={label}
+            onPress={() => onChange(key)}
+            style={[s.tab, active === key && s.selected]}
+          >
+            <View style={s.icon}>
+              <Ionicons
+                name={icon}
+                size={23}
+                color={active === key ? colors.cyan : colors.dim}
+              />
+              {key === "chat" && unread > 0 && <View style={s.badge} />}
+            </View>
+            <Text style={[s.label, active === key && s.labelOn]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
 const s = StyleSheet.create({
   wrap: {
     flexDirection: "row",
-    paddingTop: 10,
-    paddingHorizontal: 12,
-    borderTopWidth: 1,
+    paddingTop: 6,
+    paddingBottom: 6,
+    marginHorizontal: 12,
+    borderRadius: 26,
+    paddingHorizontal: 6,
+    borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bg,
+    backgroundColor: "#0B111D",
   },
-  tab: { flex: 1, alignItems: "center", minHeight: 52, gap: 4 },
+  tab: {
+    flex: 1,
+    alignItems: "center",
+    minHeight: 56,
+    gap: 4,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
   icon: {
     width: 52,
     height: 30,

@@ -10,7 +10,7 @@ The remote branches inspected were `main`, `feat/clutch-logo`, `react-native-con
 
 ## Frontend
 
-Restored near-black surfaces, neon lime/cyan/purple accents, story rings, the shared nightly Clutch card, recovery rings, dense metric cards, streak counters, duels, Phone Down and squad-feed shortcuts. Native maps are unchanged; web gets a dark schematic. Challenge shortcuts now open the corresponding arena section. Profile/ranking fixes and responsive layouts are retained.
+Restored near-black surfaces, neon lime/cyan/purple accents, story rings, the shared nightly Clutch card, recovery rings, dense metric cards, streak counters, duels, Phone Down and squad-feed shortcuts. Native maps retain native providers; web now uses real Leaflet/Esri geography, matching the HTML original. Bundled character avatars appear in profiles, feed, stories and map pins. The feed has the original squad strip and cyan outgoing bubbles, and supports composing emoji/caption view-once snaps. Challenge shortcuts now open the corresponding arena section. Profile/ranking fixes and responsive layouts are retained.
 
 ## Backend
 

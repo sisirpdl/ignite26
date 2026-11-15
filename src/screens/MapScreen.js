@@ -1,13 +1,6 @@
 import { useBackendState } from "../data/BackendProvider";
 import React, { useMemo, useRef, useState } from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import MapView, { Marker, Polygon, Polyline } from "../components/MapCanvas";
 import * as Location from "expo-location";
 import Avatar from "../components/common/Avatar";
@@ -56,80 +49,20 @@ const routeLines = {
     [-8, 7],
   ],
 };
-const territories = [
-  [
-    [-9, -7],
-    [-6, -7],
-    [-5, -4],
-    [-8, -3],
-  ],
-  [
-    [-5, -7],
-    [-2, -7],
-    [-1, -4],
-    [-4, -3],
-  ],
-  [
-    [-1, -7],
-    [2, -7],
-    [3, -4],
-    [0, -3],
-  ],
-  [
-    [3, -7],
-    [6, -7],
-    [7, -4],
-    [4, -3],
-  ],
-  [
-    [-8, -2],
-    [-5, -2],
-    [-4, 1],
-    [-7, 2],
-  ],
-  [
-    [-4, -2],
-    [-1, -2],
-    [0, 1],
-    [-3, 2],
-  ],
-  [
-    [0, -2],
-    [3, -2],
-    [4, 1],
-    [1, 2],
-  ],
-  [
-    [4, -2],
-    [7, -2],
-    [8, 1],
-    [5, 2],
-  ],
-  [
-    [-7, 3],
-    [-4, 3],
-    [-3, 6],
-    [-6, 7],
-  ],
-  [
-    [-3, 3],
-    [0, 3],
-    [1, 6],
-    [-2, 7],
-  ],
-  [
-    [1, 3],
-    [4, 3],
-    [5, 6],
-    [2, 7],
-  ],
-  [
-    [5, 3],
-    [8, 3],
-    [9, 6],
-    [6, 7],
-  ],
-];
+// Match the original HTML territory game with a honeycomb grid.
+const territories = Array.from({ length: 5 }, (_, row) =>
+  Array.from({ length: 7 }, (_, col) => {
+    const radius = 1.45,
+      r = row - 2,
+      q = col - 3;
+    const cx = Math.sqrt(3) * radius * (q + r / 2),
+      cy = 1.5 * radius * r;
+    return Array.from({ length: 6 }, (_, i) => {
+      const angle = ((60 * i - 30) * Math.PI) / 180;
+      return [cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)];
+    });
+  }),
+).flat();
 
 export default function MapScreen({ onToast }) {
   const mapRef = useRef(null);
@@ -198,10 +131,6 @@ export default function MapScreen({ onToast }) {
     [tick, running, seconds],
   );
   const focusMe = async () => {
-    if (Platform.OS === "web") {
-      onToast("Real GPS maps are available in the iOS and Android app");
-      return;
-    }
     try {
       const permission = await Location.requestForegroundPermissionsAsync();
       if (permission.status !== "granted") {
@@ -259,6 +188,7 @@ export default function MapScreen({ onToast }) {
           ref={mapRef}
           style={styles.map}
           initialRegion={campus}
+          userInterfaceStyle="dark"
           customMapStyle={darkMapStyle}
           onPress={placeRally}
         >
@@ -291,6 +221,7 @@ export default function MapScreen({ onToast }) {
             person.id === 1 && !shareLocation ? null : (
               <Marker
                 key={person.id}
+                person={person}
                 coordinate={person.coordinate}
                 title={person.id === 1 ? "You" : person.name}
                 description={person.moving ? "Running now" : "Resting"}

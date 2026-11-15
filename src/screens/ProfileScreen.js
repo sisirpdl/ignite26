@@ -1,6 +1,7 @@
 import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
 import {
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -179,6 +180,31 @@ export default function ProfileScreen({
               </Card>
             </>
           )}
+          <View style={{ gap: 6, padding: 8 }}>
+            <Text style={{ color: colors.dim, fontSize: 10 }}>
+              Adventurer avatars by Lisa Wischofsky, via DiceBear.
+            </Text>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() =>
+                Linking.openURL("https://www.dicebear.com/styles/adventurer/")
+              }
+            >
+              <Text style={{ color: colors.cyan, fontSize: 10 }}>
+                Avatar source & credits
+              </Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="link"
+              onPress={() =>
+                Linking.openURL("https://creativecommons.org/licenses/by/4.0/")
+              }
+            >
+              <Text style={{ color: colors.cyan, fontSize: 10 }}>
+                CC BY 4.0 license
+              </Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </Modal>

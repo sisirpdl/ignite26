@@ -80,6 +80,7 @@ function createApp({
           );
         const ext = path.extname(file);
         const types = {
+          ".css": "text/css",
           ".html": "text/html",
           ".js": "text/javascript",
           ".png": "image/png",

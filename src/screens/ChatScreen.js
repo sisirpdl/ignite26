@@ -29,6 +29,9 @@ export default function ChatScreen({
   const [sheet, setSheet] = useState(false);
   const [draftPoll, setDraftPoll] = useState("");
   const [snapView, setSnapView] = useState(null);
+  const [snapDraft, setSnapDraft] = useState(false),
+    [snapEmoji, setSnapEmoji] = useState("🔥"),
+    [snapCaption, setSnapCaption] = useState("");
   const scroller = useRef(null);
   const messageNumber = useRef(10);
   useEffect(() => {
@@ -136,18 +139,31 @@ export default function ChatScreen({
       keyboardVerticalOffset={90}
     >
       <View style={styles.header}>
-        <View>
-          <Text style={type.overline}>THE SQUAD</Text>
-          <Text style={styles.title}>Squad feed</Text>
-        </View>
+        {squad.map((member) => (
+          <Pressable
+            key={member.id}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${member.name} profile`}
+            onPress={() => onProfile(member)}
+            style={styles.squadMember}
+          >
+            <Avatar person={member} size={46} />
+            <Text style={styles.squadName}>
+              {member.id === ME ? "You" : member.name}
+            </Text>
+            <Text style={[styles.squadRecovery, { color: member.color }]}>
+              {member.recovery}%
+            </Text>
+          </Pressable>
+        ))}
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Profile and settings"
           onPress={() => onProfile(squad[0])}
-          style={styles.members}
+          style={styles.squadMember}
         >
-          <Avatar person={squad[0]} size={30} />
-          <Avatar person={squad[1]} size={30} />
-          <Text style={styles.memberMore}>+2</Text>
+          <Ionicons name="settings-outline" size={25} color={colors.muted} />
+          <Text style={styles.squadName}>Settings</Text>
         </Pressable>
       </View>
       <ScrollView
@@ -238,13 +254,68 @@ export default function ChatScreen({
         onClose={() => setSheet(false)}
       >
         <View style={styles.sheetOptions}>
+          {snapDraft && (
+            <View style={styles.poll}>
+              <Text style={styles.pollQuestion}>Make a squad snap</Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {["🔥", "💪", "🏃", "😴", "😵‍💫"].map((emoji) => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Choose ${emoji}`}
+                    key={emoji}
+                    onPress={() => setSnapEmoji(emoji)}
+                    style={{
+                      padding: 8,
+                      borderRadius: 12,
+                      backgroundColor:
+                        snapEmoji === emoji ? "#6D28D9" : "#172033",
+                    }}
+                  >
+                    <Text style={{ fontSize: 24 }}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                accessibilityLabel="Snap caption"
+                value={snapCaption}
+                onChangeText={setSnapCaption}
+                maxLength={180}
+                placeholder="Caption your moment…"
+                placeholderTextColor={colors.dim}
+                style={styles.pollInput}
+              />
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setMessages((all) => [
+                    ...all,
+                    {
+                      id: nextId("snap"),
+                      type: "snap",
+                      userId: ME,
+                      emoji: snapEmoji,
+                      caption: snapCaption.trim() || "Squad moment",
+                      time: "Now",
+                      reactions: {},
+                    },
+                  ]);
+                  setSnapCaption("");
+                  setSnapDraft(false);
+                  setSheet(false);
+                }}
+                style={[styles.pollButton, { backgroundColor: colors.violet }]}
+              >
+                <Text style={styles.pollButtonText}>Send view-once snap</Text>
+              </Pressable>
+            </View>
+          )}
+
           <SheetAction
             icon="camera-outline"
             label="Send a snap"
             description="View once, then it’s gone"
             onPress={() => {
-              setSheet(false);
-              onToast("Snap viewer opens from a squad post");
+              setSnapDraft(true);
             }}
           />
           <SheetAction
@@ -361,7 +432,7 @@ function Message({ message, person, onReact, onVote, onProfile, onSnap }) {
             </Text>
             <View>
               <Text style={styles.snapCardTitle}>
-                {message.opened ? "Opened snap" : "Tap to view snap"}
+                {message.opened ? "Opened snap" : "New Snap • Tap to view"}
               </Text>
               <Text style={styles.snapCardSub}>
                 {message.opened ? "View once" : "Expires after viewing"}
@@ -370,7 +441,14 @@ function Message({ message, person, onReact, onVote, onProfile, onSnap }) {
           </Pressable>
         ) : (
           <View style={[styles.bubble, mine && styles.mineBubble]}>
-            <Text style={styles.messageText}>{message.text}</Text>
+            <Text
+              style={[
+                styles.messageText,
+                mine && { color: "#03131C", fontWeight: "600" },
+              ]}
+            >
+              {message.text}
+            </Text>
           </View>
         )}
         <Text style={styles.time}>{message.time}</Text>
@@ -420,6 +498,14 @@ function SheetAction({ icon, label, description, onPress }) {
 }
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
+  squadMember: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+  },
+  squadName: { color: "#D4E3EF", fontSize: 9, fontWeight: "800" },
+  squadRecovery: { fontSize: 9, fontWeight: "900" },
   header: {
     padding: 16,
     paddingBottom: 12,
@@ -479,10 +565,10 @@ const styles = StyleSheet.create({
     padding: 11,
   },
   mineBubble: {
-    backgroundColor: "#123548",
+    backgroundColor: "#06B6D4",
     borderBottomLeftRadius: 17,
     borderBottomRightRadius: 4,
-    borderColor: "#155E75",
+    borderColor: "#06B6D4",
   },
   messageText: { color: colors.text, fontSize: 13, lineHeight: 18 },
   time: { color: colors.dim, fontSize: 9, marginTop: 4 },

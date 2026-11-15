@@ -38,7 +38,7 @@ HOST=0.0.0.0 npm run server
 EXPO_PUBLIC_API_URL=http://YOUR_COMPUTER_LAN_IP:8787 npm start
 ```
 
-Use a compatible Expo Go client or a development build. Physical-device and signed-store builds still need QA; production requires HTTPS and platform map configuration. The React Native app uses native maps on iOS/Android. The browser-only map is explicitly labeled as a demo route schematic.
+Use a compatible Expo Go client or a development build. Physical-device and signed-store builds still need QA; production requires HTTPS and platform map configuration. The React Native app uses native maps on iOS/Android. The browser map now uses Leaflet with the same Esri Dark Gray basemap as the HTML original. Both platforms show character-avatar pins. Geography is real; squad locations, turf and routes remain demo data. Map tiles require a network connection.
 
 ## What persists
 
@@ -80,3 +80,7 @@ See `DESIGN_REVIEW.md` for the review record.
 This is a **persistent development prototype**, not a production multiplayer service. Squad members, wearable readings, messages from teammates, race movement and game settlements are simulated. Document persistence is not a server-authoritative game ledger. Production work still includes account authentication and recovery, real squad membership, secure device credentials, health-provider ingestion, verified scoring/settlement, real-time events, backups, observability and deployment. Do not expose the development API publicly or use it for real health data.
 
 The original HTML file still uses CDN dependencies. Serve it through the backend; opening it with `file://` does not connect the API.
+
+## Avatar credits
+
+Bundled Adventurer characters by Lisa Wischofsky, generated through DiceBear 9.x under CC BY 4.0. The same seeds and colors as the HTML prototype are used. See `assets/avatars/ATTRIBUTION.md` and the in-app profile credits. These are not Snapchat Bitmoji assets.
