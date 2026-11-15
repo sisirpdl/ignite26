@@ -1,0 +1,2348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clutch</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+    <script src="./fair-math.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.24.7/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Manrope', sans-serif; font-feature-settings: 'tnum' 1, 'ss01' 1; background-color: #030508; color: #f8fafc; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .animate-fadeIn { animation: fadeIn 0.25s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: none; } }
+        .animate-slideUp { animation: slideUp 0.25s cubic-bezier(.2,.8,.2,1); }
+        @keyframes grow { from { width: 0; } to { width: 100%; } }
+        .animate-grow { animation: grow 4s linear forwards; }
+        @keyframes blink { 0%, 80%, 100% { opacity: .2; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+        .dot { animation: blink 1.2s infinite; }
+        .dot:nth-child(2) { animation-delay: .15s; }
+        .dot:nth-child(3) { animation-delay: .3s; }
+        @keyframes pop { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+        .animate-pop { animation: pop .3s ease-out; }
+        @keyframes whoosh { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-14px); } }
+        .animate-whoosh { animation: whoosh 1.2s ease-out forwards; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #070a0f; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 4px; }
+        /* ---- Maps (Leaflet) ---- */
+        .leaflet-container { background: #05070a; font-family: inherit; }
+        .leaflet-control-attribution { background: rgba(5,7,10,.7) !important; color: #64748b !important; font-size: 8px !important; }
+        .leaflet-control-attribution a { color: #94a3b8 !important; }
+        .squad-marker { transition: transform 1s linear; }
+        .leaflet-zoom-anim .squad-marker { transition: none; }
+        .sq-pin { width: 38px; height: 38px; border-radius: 9999px; border: 3px solid var(--c); background: var(--c); position: relative;
+                  box-shadow: 0 0 0 3px rgba(5,7,10,.85), 0 6px 18px rgba(0,0,0,.6); }
+        .sq-pin img { width: 100%; height: 100%; border-radius: 9999px; display: block; }
+        .sq-pin.moving::after { content: ''; position: absolute; inset: -8px; border-radius: 9999px; border: 2px solid var(--c); animation: pinpulse 1.4s cubic-bezier(0,0,.2,1) infinite; }
+        @keyframes pinpulse { 0% { transform: scale(.8); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+        .sq-pin.ghost { opacity: .55; filter: grayscale(.4); border-style: dashed; }
+        .sq-pin.hidden-me { border-style: dashed; opacity: .75; }
+        .sq-pin b { position: absolute; top: -12px; right: -10px; font-size: 15px; }
+        .sq-pin i { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 5px; font-style: normal; font-size: 9px; font-weight: 800;
+                    color: #fff; background: rgba(0,0,0,.75); padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+        .campus-pin { display: inline-block; width: max-content; transform: translate(-50%, -50%); white-space: nowrap; font-size: 10px; font-weight: 800; color: #05070a; background: #e2e8f0; padding: 3px 8px; border-radius: 999px; box-shadow: 0 4px 14px rgba(0,0,0,.6); }
+        .rally-pin { font-size: 28px; filter: drop-shadow(0 4px 8px rgba(0,0,0,.6)); animation: bob 1.2s ease-in-out infinite; position: relative; line-height: 1; }
+        .rally-pin span { position: absolute; left: 50%; top: -15px; transform: translateX(-50%); font-size: 9px; font-weight: 800; color: #000; background: #c8ff00; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+        @keyframes bob { 50% { transform: translateY(-4px); } }
+    </style>
+</head>
+<body class="bg-[#030508] text-slate-100 flex justify-center items-center min-h-screen p-0 m-0">
+
+    <div id="root" class="w-full max-w-md h-[100vh] sm:h-[840px] sm:rounded-[40px] sm:border-8 sm:border-slate-800 bg-[#05070a] shadow-2xl overflow-hidden flex flex-col relative"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // ---------- Constants & helpers ----------
+        const ME = 1;
+        const MONTH_DAYS = 30;
+        const CHALLENGE_DAY = 19;
+        // Fixed score units make a month-long Challenge Score readable in the thousands.
+        // This is the same conversion for every verified Fair Score; it never changes rank.
+        const CHALLENGE_SCORE_UNITS = 1; // 1 point per daily point: max 100/day, 3,000/month
+        const DAILY_MAX = 100;
+        let _id = 100;
+        const uid = () => ++_id;
+        const clamp = (v, a = 0, b = 100) => Math.max(a, Math.min(b, v));
+        const toChallengeScore = (fairScore) => Math.round(fairScore * CHALLENGE_SCORE_UNITS);
+        const fmtTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const fmtHM = (mins) => `${Math.floor(mins / 60)}h ${String(Math.round(mins % 60)).padStart(2, '0')}m`;
+        const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][n] || 'th');
+
+        const SOURCES = {
+            apple:   { name: 'Apple Health',   hrv: 'SDNN', rhr: 'RestingHR', sleep: 'SleepAnalysis', steps: 'StepCount', energy: 'ActiveEnergyBurned', screen: 'iOS Screen Time API: DeviceActivity' },
+            samsung: { name: 'Samsung Health', hrv: 'HEART_RATE_VARIABILITY', rhr: 'HEART_RATE (resting)', sleep: 'SLEEP_SESSION', steps: 'StepCount', energy: 'CALORIES_BURNED', screen: 'Digital Wellbeing: UsageStatsManager' },
+            garmin:  { name: 'Garmin Connect', hrv: 'HRV Summary: lastNightAvg', rhr: 'Dailies: restingHeartRate', sleep: 'Sleeps: stage durations', steps: 'Dailies: steps', energy: 'Dailies: activeKilocalories', bodyBattery: 'Stress Details: bodyBatteryValues', screen: 'Paired phone: Screen Time / Digital Wellbeing' },
+        };
+
+        const SQUAD_INIT = [
+            { id: 1, name: 'Shishir',  avatar: 'Kai', color: '#c8ff00', recovery: 88, device: 'apple' },
+            { id: 2, name: 'Anshu',    avatar: 'Nova', color: '#58d8ff', recovery: 92, device: 'samsung' },
+            { id: 3, name: 'Sakshyam', avatar: 'Rio', color: '#a78bfa', recovery: 74, device: 'apple' },
+            { id: 4, name: 'Supratik', avatar: 'Zane', color: '#ff9f43', recovery: 81, device: 'garmin' },
+        ];
+
+        // Each entry is that day's verified Fair Math composite (0–100), not a
+        // second scoring currency. The chart accumulates these entries.
+        const MONTHLY_DAILY_SCORES = {
+            1: [82, 88, 65, 94, 71, 83, 96, 52, 88, 91, 69, 98, 76, 84, 93, 61, 89, 95, 0],
+            2: [91, 94, 78, 96, 85, 66, 93, 88, 97, 75, 90, 82, 95, 71, 98, 86, 92, 89, 94],
+            3: [73, 77, 91, 58, 84, 88, 66, 93, 72, 81, 95, 63, 86, 90, 74, 98, 69, 83, 87],
+            4: [86, 84, 69, 92, 77, 96, 81, 62, 90, 94, 73, 87, 98, 68, 85, 91, 79, 96, 82],
+        };
+
+        const QUARTERLY_WEEKLY_SCORES = {
+            1: [544, 612, 477, 650, 516, 593, 638, 481, 607, 576, 681, 528, 610],
+            2: [630, 647, 571, 663, 588, 614, 658, 605, 672, 620, 641, 590, 662],
+            3: [496, 542, 601, 465, 572, 620, 510, 641, 550, 586, 625, 488, 598],
+            4: [571, 588, 526, 633, 554, 641, 576, 492, 625, 644, 519, 611, 567],
+        };
+
+        // Recent 12-hour score increments. The chart displays their running total,
+        // keeping focus on today's verified movement rather than an all-day history.
+        const INTRADAY_CHALLENGE_INCREMENTS = {
+            1: [0, 0, 0, 17, 10, 14, 8, 15, 0],
+            2: [0, 0, 0, 19, 11, 16, 8, 17, 23],
+            3: [0, 0, 0, 12, 9, 13, 7, 15, 18],
+            4: [0, 0, 0, 15, 12, 14, 9, 16, 20],
+        };
+        const INTRADAY_LABELS = ['9 AM', '10:30', '12 PM', '1:30', '3 PM', '4:30', '6 PM', '7:30', 'Now'];
+
+        const CHALLENGE_RANGES = {
+            '2w': { label: '2W', pointLabel: 'Day' },
+            '1m': { label: '1M', pointLabel: 'Day' },
+            '3m': { label: '3M', pointLabel: 'Week' },
+        };
+
+        const REPLIES = {
+            2: ['Let’s gooo 🔥', 'Catch me if you can 😤', 'Trail at 6, no excuses', 'Big W'],
+            3: ['Respect 🫡', 'Saving my legs for tomorrow 😴', 'HRV says chill, heart says race', 'ok ok I’m getting up'],
+            4: ['W 💪', 'Locked in 🎯', 'Coming for that spot 👀', 'Say less'],
+        };
+        const QUICK = ['🔥', '💪 Let’s go', '😴 Rest day', '🏃 Heading out', '👀 Who’s up?'];
+        const REACTIONS = ['🔥', '💪', '😂', '💀', '❤️', '👏'];
+        const SNAP_PRESETS = [
+            { emoji: '🏃', caption: 'Post-run glow', bg: 'linear-gradient(135deg,#f97316,#ec4899)' },
+            { emoji: '🌅', caption: 'Sunrise check-in', bg: 'linear-gradient(135deg,#f59e0b,#ef4444)' },
+            { emoji: '🏋️', caption: 'Gym mode: ON', bg: 'linear-gradient(135deg,#6366f1,#22d3ee)' },
+            { emoji: '😴', caption: 'Recovery day', bg: 'linear-gradient(135deg,#7c3aed,#db2777)' },
+        ];
+        const CHALLENGES = ['First to 12,000 steps today 👟', 'Highest recovery tomorrow morning 💚', 'Most strain before 9 PM ⚡', '8h+ sleep tonight 😴'];
+
+        // ---------- Games, economy & extras ----------
+        // Demo values for squadmates. In the product these come from each member's own connected platform.
+        const SQUAD_EXTRA = {
+            1: { stress: 31, vo2: 48.2, curfewStreak: 3, curfewLast: true, sleepStreak: 5, stepStreak: 9 },
+            2: { stress: 27, vo2: 51.4, curfewStreak: 6, curfewLast: true, sleepStreak: 8, stepStreak: 12 },
+            3: { stress: 46, vo2: 43.9, curfewStreak: 0, curfewLast: false, sleepStreak: 1, stepStreak: 2 },
+            4: { stress: 22, vo2: 49.7, curfewStreak: 4, curfewLast: true, sleepStreak: 4, stepStreak: 6 },
+        };
+        // Challenge points move a player's own daily score (0–100). STAKE is what you put on the line.
+        const STAKE = 2;
+        const POINT_KINDS = { duel: '⚔️', squad: '🏁', clutch: '⚡', bonus: '💥' };
+        const MAX_SENDS = 3; // squad challenges + Phone Downs + 1v1 duels a player can send per day
+        // Clutch: announced 12 hours ahead, everyone in the group takes part. Squad results are pass / fail only.
+        const CLUTCH_INIT = [
+            { id: 'c1', icon: '📵', title: 'Max 3h screen time today', kind: 'screen', limit: 180, announced: 'Yesterday · 12:00 PM', window: 'Today · until midnight', status: 'live', squadPass: { 2: true, 3: false, 4: true } },
+            { id: 'c2', icon: '😴', title: 'Sleep 7h+ tonight', kind: 'sleep', target: 420, announced: 'Today · 10:00 AM', window: 'Tonight · 10 PM to 8 AM', status: 'upcoming', squadPass: { 2: true, 3: true, 4: false } },
+        ];
+        const VARIABLES = [
+            { key: 'steps', label: 'Steps', icon: '👟', core: true, title: 'Most steps by 9 PM' },
+            { key: 'sleep', label: 'Sleep', icon: '😴', core: true, title: 'Longest sleep tonight' },
+            { key: 'recovery', label: 'Recovery', icon: '💚', core: true, title: 'Highest recovery tomorrow' },
+            { key: 'stress', label: 'Stress', icon: '🧘', desc: 'Calm vs stressed timeline', title: 'Lowest average stress today' },
+            { key: 'vitals', label: 'SpO₂ & Skin Temp', icon: '🌡️', desc: 'Overnight vitals in your Sleep card', title: null },
+            { key: 'vo2', label: 'VO₂ Max', icon: '🫁', desc: 'Long-term cardio fitness', title: 'Biggest VO₂ max gain this week' },
+            { key: 'screen', label: 'Screen Time', icon: '📵', desc: 'Curfew & Phone Down (pass / fail only)', title: 'Make curfew tonight' },
+        ];
+        const BONUS_CHALLENGES = [
+            { title: '500 steps in 15 minutes', icon: '👟', reward: 2 },
+            { title: 'Hold 120+ bpm for 5 minutes', icon: '❤️', reward: 3 },
+            { title: 'Phone face-down for 20 minutes', icon: '📵', reward: 1 },
+            { title: '3 flights of stairs in 10 minutes', icon: '🪜', reward: 2 },
+            { title: '2-minute breathing drill: stay under 30 stress', icon: '🧘', reward: 1 },
+        ];
+        const BADGES = [
+            { id: 'sleep7', icon: '😴', name: 'Sleep Streak', desc: '7 nights in the optimal window', have: 5, need: 7 },
+            { id: 'curfew7', icon: '🌙', name: 'Night Owl Reformed', desc: '7 curfews in a row', have: 3, need: 7 },
+            { id: 'steps10', icon: '👟', name: 'Step Machine', desc: 'Step goal 10 days straight', have: 9, need: 10 },
+            { id: 'clutch', icon: '⚡', name: 'Clutch King', desc: 'Pass 3 Clutches', need: 3 },
+            { id: 'duel', icon: '⚔️', name: 'Duelist', desc: 'Win a 1v1 duel', need: 1 },
+            { id: 'phone', icon: '📵', name: 'Iron Will', desc: 'Survive a Phone Down', need: 1 },
+            { id: 'turf', icon: '🗺️', name: 'Turf Lord', desc: 'Hold 15 hexes at once', need: 15 },
+        ];
+        const GROUPS = [
+            { id: 'g1', name: 'The Squad', emoji: '⚡', size: 4 },
+            { id: 'g2', name: 'Morning Runners', emoji: '🌅', size: 7 },
+        ];
+        // Second group: you + Anshu + five other runners. Demo data for that group's profile and stories.
+        const MORNING_RUNNERS = [
+            { id: 5, name: 'Maya', avatar: 'Juno', color: '#f472b6' },
+            { id: 6, name: 'Leo', avatar: 'Ash', color: '#34d399' },
+            { id: 7, name: 'Ivy', avatar: 'Pip', color: '#facc15' },
+            { id: 8, name: 'Omar', avatar: 'Rex', color: '#60a5fa' },
+            { id: 9, name: 'Zoe', avatar: 'Lux', color: '#fb7185' },
+        ];
+        const G2 = {
+            members: [1, 2, 5, 6, 7, 8, 9],
+            stats: {
+                1: { recovery: 88, stress: 31, vo2: 48.2, curfewLast: true },
+                2: { recovery: 92, stress: 27, vo2: 51.4, curfewLast: true },
+                5: { recovery: 95, stress: 19, vo2: 53.1, curfewLast: true },
+                6: { recovery: 71, stress: 44, vo2: 45.0, curfewLast: false },
+                7: { recovery: 83, stress: 28, vo2: 47.6, curfewLast: true },
+                8: { recovery: 66, stress: 52, vo2: 44.2, curfewLast: true },
+                9: { recovery: 90, stress: 24, vo2: 50.3, curfewLast: false },
+            },
+            rank: 3, challenge: 7980, today: 86, leader: 5,
+            streaks: { sleep: 2, curfew: 1, steps: 4 },
+            badges: { sleep7: 2, curfew7: 1, steps10: 4, clutch: 0, duel: 1, phone: 0, turf: 6 },
+            week: { steps: '412k', sub: '96.3 km run · 31 workouts', sleeper: [5, 'Maya averaged 8h 21m'], clutchChamp: [9, 'Zoe passed every Clutch'] },
+        };
+
+        // ---------- Maps ----------
+        const MAP_W = 360, MAP_H = 300, KM_PER_PX = 0.02, RUN_TICKS = 60;
+        const polyLen = (pts) => pts.slice(1).reduce((sum, p, i) => sum + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
+        const pointAt = (pts, t) => {
+            let d = clamp(t, 0, 1) * polyLen(pts);
+            for (let i = 1; i < pts.length; i++) {
+                const [x0, y0] = pts[i - 1], [x1, y1] = pts[i];
+                const len = Math.hypot(x1 - x0, y1 - y0);
+                if (d <= len) { const f = len ? d / len : 0; return [x0 + (x1 - x0) * f, y0 + (y1 - y0) * f]; }
+                d -= len;
+            }
+            return pts[pts.length - 1];
+        };
+        const partialPts = (pts, t) => {
+            let d = clamp(t, 0, 1) * polyLen(pts);
+            const out = [pts[0]];
+            for (let i = 1; i < pts.length; i++) {
+                const len = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+                if (d <= len) { out.push(pointAt([pts[i - 1], pts[i]], len ? d / len : 0)); return out; }
+                out.push(pts[i]); d -= len;
+            }
+            return out;
+        };
+        const toPath = (pts) => 'M' + pts.map(p => p.join(',')).join(' L');
+        const fmtClock = (sec) => {
+            const t = Math.round(sec), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = String(t % 60).padStart(2, '0');
+            return h ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`;
+        };
+        const fmtPace = (secPerKm) => { const t = Math.round(secPerKm); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}/km`; };
+
+        const ROUTES_INIT = [
+            { id: 'r1', name: 'Riverside Loop', km: 5.2, elev: 18, record: { userId: 2, time: 1450 }, best: 1522,
+              pts: [[40, 228], [90, 208], [150, 220], [210, 202], [270, 215], [320, 190], [300, 150], [240, 165], [180, 175], [120, 170], [60, 185], [40, 228]] },
+            { id: 'r2', name: 'Hill Sprint', km: 3.1, elev: 96, record: { userId: 4, time: 905 }, best: 962,
+              pts: [[170, 30], [195, 70], [185, 110], [212, 140], [240, 165]] },
+            { id: 'r3', name: 'Park Circuit', km: 7.8, elev: 34, record: { userId: 1, time: 2290 }, best: 2290,
+              pts: [[70, 58], [160, 55], [172, 100], [150, 140], [80, 142], [58, 100], [70, 58]] },
+        ];
+        // Hex territory: the game world is a 360x300 "px" plane (1 px = 20 m) projected onto a real map.
+        const M_PER_PX = 20;
+        const DEFAULT_CENTER = [44.0132, -97.1112]; // Dakota State University, Madison SD; "Use my location" re-centres the world
+        const HEX = 14;
+        const hexCenter = (q, r) => [HEX * Math.sqrt(3) * (q + r / 2), HEX * 1.5 * r];
+        const hexCorners = (q, r) => {
+            const [cx, cy] = hexCenter(q, r);
+            return Array.from({ length: 6 }, (_, i) => { const a = (Math.PI / 180) * (60 * i - 30); return [cx + HEX * Math.cos(a), cy + HEX * Math.sin(a)]; });
+        };
+        const pxToHexId = (x, y) => {
+            const q = ((Math.sqrt(3) / 3) * x - y / 3) / HEX, r = ((2 / 3) * y) / HEX;
+            let rx = Math.round(q), rz = Math.round(r);
+            const ry = Math.round(-q - r);
+            const dx = Math.abs(rx - q), dz = Math.abs(rz - r), dy = Math.abs(ry + q + r);
+            if (dx > dy && dx > dz) rx = -ry - rz; else if (dz > dy) rz = -rx - ry;
+            return `${rx},${rz}`;
+        };
+        const HEX_GRID = (() => {
+            const out = [];
+            for (let r = -1; r <= Math.ceil(MAP_H / (1.5 * HEX)) + 1; r++) {
+                for (let q = -Math.ceil(r / 2) - 2; q <= Math.ceil(MAP_W / (Math.sqrt(3) * HEX)) + 2; q++) {
+                    const [cx, cy] = hexCenter(q, r);
+                    if (cx > -HEX / 2 && cx < MAP_W + HEX / 2 && cy > -HEX / 2 && cy < MAP_H + HEX / 2) out.push({ id: `${q},${r}`, q, r, cx, cy });
+                }
+            }
+            return out;
+        })();
+        const TURF_SEEDS = { 1: [205, 245], 2: [292, 195], 3: [95, 105], 4: [192, 72] };
+        const HEXES_INIT = Object.fromEntries(HEX_GRID.map(h => {
+            let best = null, bd = 62;
+            Object.entries(TURF_SEEDS).forEach(([id, [x, y]]) => { const d = Math.hypot(h.cx - x, h.cy - y); if (d < bd) { bd = d; best = Number(id); } });
+            return [h.id, best];
+        }));
+        const toLatLng = (c, [x, y]) => [
+            c[0] - ((y - MAP_H / 2) * M_PER_PX) / 111320,
+            c[1] + ((x - MAP_W / 2) * M_PER_PX) / (111320 * Math.cos((c[0] * Math.PI) / 180)),
+        ];
+        const toPx = (c, lat, lng) => [
+            MAP_W / 2 + ((lng - c[1]) * 111320 * Math.cos((c[0] * Math.PI) / 180)) / M_PER_PX,
+            MAP_H / 2 - ((lat - c[0]) * 111320) / M_PER_PX,
+        ];
+        const LIVE_INIT = {
+            1: { home: [205, 268] },
+            2: { route: 'r1', t: 0.05, speed: 0.007 },
+            3: { route: 'r3', t: 0.5, speed: 0.004 },
+            4: { route: 'r2', t: 0.2, speed: 0.02, dir: 1, pingpong: true },
+        };
+
+        // ---------- Small components ----------
+        function Ring({ value, max = 100, size = 168, stroke = 12, color = '#22d3ee', track = '#0f172a', children }) {
+            const r = (size - stroke) / 2;
+            const c = 2 * Math.PI * r;
+            const pct = Math.max(0, Math.min(value / max, 1));
+            return (
+                <div className="relative flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+                    <svg width={size} height={size} className="absolute inset-0 -rotate-90">
+                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={track} strokeWidth={stroke} />
+                        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke}
+                            strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - pct)}
+                            style={{ transition: 'stroke-dashoffset .8s ease, stroke .3s' }} />
+                    </svg>
+                    <div className="relative flex flex-col items-center">{children}</div>
+                </div>
+            );
+        }
+
+        // Avatars come from DiceBear (open-source avatar library, "adventurer" style).
+        // `m.avatar` is a neutral seed word, so no personal data is sent; the same seed always gives the same face.
+        const avatarUrl = (m) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${encodeURIComponent(m.avatar)}&backgroundColor=${m.color.replace('#', '')}&radius=50`;
+
+        function Avatar({ m, size = 36 }) {
+            const [failed, setFailed] = useState(false);
+            return (
+                <div className="relative rounded-full overflow-hidden flex items-center justify-center shrink-0 font-black text-slate-900"
+                    style={{ width: size, height: size, background: m.color, border: `2px solid ${m.color}`, fontSize: size * 0.42 }}>
+                    {failed
+                        ? m.name[0]
+                        : <img src={avatarUrl(m)} alt={m.name} draggable="false" className="w-full h-full object-cover" onError={() => setFailed(true)} />}
+                </div>
+            );
+        }
+
+        // Source details are used by the normalization engine, not rendered as dashboard chrome.
+        function Source() { return null; }
+
+        // Real map via Leaflet (global `L`), driven imperatively from React props.
+        const pinHtml = (p) => `<div class="sq-pin ${p.moving ? 'moving' : ''} ${p.ghost ? 'ghost' : ''} ${p.hidden ? 'hidden-me' : ''}" style="--c:${p.color}"><img src="${p.img}" alt="" draggable="false"/>${p.ghost ? '<b>👻</b>' : ''}${p.label ? `<i>${p.label}</i>` : ''}</div>`;
+
+        function SquadMap({ center, hexes, routes, run, trails, rally, colors, pins, mode, highlight, follow, focus, onMapClick }) {
+            const elRef = useRef(null);
+            const R = useRef({});
+            const clickRef = useRef(onMapClick);
+            clickRef.current = onMapClick;
+
+            useEffect(() => {
+                if (!window.L || !elRef.current) return;
+                const Lf = window.L;
+                const m = Lf.map(elRef.current, { zoomControl: false, maxZoom: 16 }).setView(toLatLng(center, [MAP_W / 2, MAP_H / 2]), 15);
+                // Esri Dark Gray Canvas: free basemap tiles, no API key needed.
+                const esri = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
+                Lf.tileLayer(esri + 'World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' }).addTo(m);
+                Lf.tileLayer(esri + 'World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, opacity: 0.8 }).addTo(m);
+                R.current = { map: m, hexes: {}, styled: {}, markers: {}, hexLayer: Lf.layerGroup().addTo(m), lineLayer: Lf.layerGroup().addTo(m) };
+                m.on('click', (e) => clickRef.current && clickRef.current(e.latlng));
+                setTimeout(() => m.invalidateSize(), 60);
+                return () => { m.remove(); R.current = {}; };
+            }, []);
+
+            // (Re)build the hex grid whenever the world is re-centred.
+            useEffect(() => {
+                const r = R.current; if (!r.map) return;
+                r.map.setView(toLatLng(center, [MAP_W / 2, MAP_H / 2]), r.map.getZoom());
+                r.hexLayer.clearLayers(); r.hexes = {}; r.styled = {};
+                HEX_GRID.forEach(h => { r.hexes[h.id] = window.L.polygon(hexCorners(h.q, h.r).map(pt => toLatLng(center, pt)), { interactive: false }).addTo(r.hexLayer); });
+                if (r.landmark) { r.landmark.remove(); r.landmark = null; }
+                if (center[0] === DEFAULT_CENTER[0] && center[1] === DEFAULT_CENTER[1]) {
+                    r.landmark = window.L.marker(DEFAULT_CENTER, { interactive: false, zIndexOffset: -100, icon: window.L.divIcon({ className: '', html: '<div class="campus-pin">🎓 Dakota State University</div>', iconSize: [0, 0] }) }).addTo(r.map);
+                }
+            }, [center[0], center[1]]);
+
+            // Paint hexes (only the ones whose owner or mode changed).
+            useEffect(() => {
+                const r = R.current; if (!r.map) return;
+                HEX_GRID.forEach(h => {
+                    const o = hexes[h.id], key = `${o}|${mode}`;
+                    if (r.styled[h.id] === key) return;
+                    r.styled[h.id] = key;
+                    const c = o ? colors[o] : null;
+                    r.hexes[h.id].setStyle(c
+                        ? { color: c, weight: o === ME ? 1.6 : 0.8, opacity: 0.75, fillColor: c, fillOpacity: mode === 'territory' ? 0.42 : 0.16 }
+                        : { color: '#334155', weight: 0.5, opacity: 0.35, fillOpacity: 0.02 });
+                });
+            });
+
+            // Routes, run progress, trails, rally point and squad pins.
+            useEffect(() => {
+                const r = R.current; if (!r.map) return;
+                const Lf = window.L;
+                r.lineLayer.clearLayers();
+                routes.forEach(rt => {
+                    const sel = rt.id === highlight;
+                    Lf.polyline(rt.pts.map(pt => toLatLng(center, pt)), { color: sel ? '#c8ff00' : '#94a3b8', weight: sel ? 5 : 2, opacity: sel ? 0.95 : 0.35, dashArray: sel ? null : '4 6', interactive: false }).addTo(r.lineLayer);
+                });
+                if (run) {
+                    const rt = routes.find(x => x.id === run.routeId);
+                    Lf.polyline(partialPts(rt.pts, run.t).map(pt => toLatLng(center, pt)), { color: '#ffffff', weight: 6, opacity: 0.9, interactive: false }).addTo(r.lineLayer);
+                }
+                Object.entries(trails).forEach(([id, pts]) => {
+                    if (pts.length > 1) Lf.polyline(pts.map(pt => toLatLng(center, pt)), { color: colors[id], weight: 3, opacity: 0.55, interactive: false }).addTo(r.lineLayer);
+                });
+                if (rally) {
+                    Lf.marker(toLatLng(center, [rally.x, rally.y]), { interactive: false, icon: Lf.divIcon({ className: '', html: `<div class="rally-pin">📍<span>${rally.label}</span></div>`, iconSize: [30, 30], iconAnchor: [15, 28] }) }).addTo(r.lineLayer);
+                }
+                const keep = new Set();
+                pins.forEach(p => {
+                    keep.add(p.key);
+                    const ll = toLatLng(center, [p.x, p.y]), html = pinHtml(p);
+                    const icon = () => Lf.divIcon({ className: 'squad-marker', html, iconSize: [38, 38], iconAnchor: [19, 19] });
+                    let mk = r.markers[p.key];
+                    if (!mk) { mk = Lf.marker(ll, { icon: icon(), zIndexOffset: p.me ? 1000 : p.ghost ? 500 : 0, interactive: false }).addTo(r.map); mk._html = html; r.markers[p.key] = mk; }
+                    else { mk.setLatLng(ll); if (mk._html !== html) { mk.setIcon(icon()); mk._html = html; } }
+                });
+                Object.keys(r.markers).forEach(k => { if (!keep.has(k)) { r.markers[k].remove(); delete r.markers[k]; } });
+            });
+
+            // Camera: follow the runner, or fly to a requested focus point.
+            const followKey = follow ? follow.map(v => Math.round(v)).join(',') : '';
+            useEffect(() => { const r = R.current; if (r.map && follow) r.map.panTo(toLatLng(center, follow), { animate: true, duration: 0.9 }); }, [followKey]);
+            useEffect(() => { const r = R.current; if (r.map && focus) r.map.flyTo(toLatLng(center, [focus.x, focus.y]), focus.zoom || 15, { duration: 0.8 }); }, [focus && focus.key]);
+
+            return <div ref={elRef} className="absolute inset-0" />;
+        }
+
+        function Card({ label, right, children, className = '' }) {
+            return (
+                <section className={`bg-gradient-to-b from-[#0e1422] to-[#090e18] border border-slate-800/80 rounded-[28px] p-5 shadow-xl ${className}`}>
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{label}</span>
+                        {right}
+                    </div>
+                    {children}
+                </section>
+            );
+        }
+
+        function Bar({ pct, color }) {
+            return (
+                <div className="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+                    <div className="h-full rounded-full transition-all duration-700" style={{ width: `${clamp(pct)}%`, background: color }}></div>
+                </div>
+            );
+        }
+
+        function MonthlyChallengeChart({ players, pointLabel, labelForIndex, maxPossible }) {
+            const currentDay = players[0]?.chartEntries.length || 0;
+            const boxRef = useRef(null);
+            const [box, setBox] = useState({ w: 460, h: 400 });
+            useEffect(() => {
+                const el = boxRef.current; if (!el) return;
+                const measure = () => { const r = el.getBoundingClientRect(); if (r.width && r.height) setBox({ w: r.width, h: r.height }); };
+                measure();
+                const ro = new ResizeObserver(measure); ro.observe(el);
+                return () => ro.disconnect();
+            }, []);
+            const width = 460, height = Math.max(360, Math.round((460 * box.h) / box.w));
+            const pad = { top: 42, right: 58, bottom: 60, left: 64 };
+            const plotW = width - pad.left - pad.right;
+            const plotH = height - pad.top - pad.bottom;
+            const visibleScores = players.flatMap(player => {
+                let cumulative = player.baseScore || 0;
+                return [cumulative, ...player.chartEntries.map(score => (cumulative += score))];
+            });
+            const scoreFloorValue = Math.min(...visibleScores);
+            const scoreCeilingValue = Math.max(...visibleScores);
+            // Full views: 0 up to the maximum possible so far (e.g. day 19 → 1,900 → axis to 2,000).
+            // 12H view: fit tightly around the squad's scores so the lines fill the chart.
+            const fitStep = [50, 100, 200, 250, 500, 1000].find(st => st >= (scoreCeilingValue - scoreFloorValue) / 4) || 1000;
+            const tickStep = maxPossible ? ([100, 200, 250, 500, 1000, 2000, 2500, 5000].find(st => st >= maxPossible / 4) || 5000) : fitStep;
+            const scoreFloor = maxPossible ? 0 : Math.max(0, Math.floor(scoreFloorValue / tickStep) * tickStep);
+            const scoreCeiling = maxPossible
+                ? Math.ceil(maxPossible / tickStep) * tickStep
+                : Math.max(scoreFloor + tickStep, Math.ceil(scoreCeilingValue / tickStep) * tickStep);
+            const yTicks = Array.from({ length: Math.round((scoreCeiling - scoreFloor) / tickStep) + 1 }, (_, i) => scoreFloor + i * tickStep);
+            const x = (index) => currentDay === 1
+                ? pad.left + plotW / 2
+                : pad.left + (index / (currentDay - 1)) * plotW;
+            const axisProgress = (score) => (scoreCeiling === scoreFloor ? 0.5 : (clamp(score, scoreFloor, scoreCeiling) - scoreFloor) / (scoreCeiling - scoreFloor));
+            const y = (score) => pad.top + plotH - axisProgress(score) * plotH;
+            const formatScore = (score) => score >= 1000 ? `${(score / 1000).toFixed(1)}k` : `${Math.round(score)}`;
+            const dayLabels = currentDay <= 4
+                ? Array.from({ length: currentDay }, (_, index) => index)
+                : [0, Math.round((currentDay - 1) / 3), Math.round((currentDay - 1) * 2 / 3), currentDay - 1];
+            const smoothPath = (points) => points.reduce((path, point, index) => {
+                if (index === 0) return `M ${point.x} ${point.y}`;
+                const previous = points[index - 1];
+                const controlX = (previous.x + point.x) / 2;
+                return `${path} C ${controlX} ${previous.y}, ${controlX} ${point.y}, ${point.x} ${point.y}`;
+            }, '');
+            const series = players.map(player => {
+                let cumulative = player.baseScore || 0;
+                const points = player.chartEntries.map((score, index) => {
+                    cumulative += score;
+                    return { x: x(index), y: y(cumulative), score, total: cumulative };
+                });
+                const line = smoothPath(points);
+                const first = points[0];
+                const last = points[points.length - 1];
+                return { player, points, line, first, last, area: `${line} L ${last.x} ${pad.top + plotH} L ${first.x} ${pad.top + plotH} Z` };
+            });
+            const endpointLayouts = new Map();
+            [...series].sort((a, b) => b.last.total - a.last.total).forEach(({ player, last }) => {
+                let avatarX = last.x, avatarY = last.y, attempt = 0;
+                const overlaps = () => [...endpointLayouts.values()].some(other => Math.hypot(avatarX - other.avatarX, avatarY - other.avatarY) < 42);
+                while (overlaps() && attempt < 4) {
+                    const lane = Math.ceil((attempt + 1) / 2);
+                    const direction = attempt % 2 === 0 ? -1 : 1;
+                    avatarX = last.x - lane * 30;
+                    avatarY = clamp(last.y + direction * lane * 30, pad.top + 19, pad.top + plotH - 19);
+                    attempt += 1;
+                }
+                endpointLayouts.set(player.id, { avatarX, avatarY });
+            });
+            // Small translucent tags left of each player's latest point: why today's score moved.
+            const placedTags = [];
+            const tagLayouts = series.flatMap(({ player, last }) => {
+                const { avatarX } = endpointLayouts.get(player.id);
+                const right = Math.min(avatarX, last.x) - 26;
+                return (player.tags || []).map((tag, i) => {
+                    const text = `${POINT_KINDS[tag.kind]} ${tag.v > 0 ? '+' : '−'}${Math.abs(tag.v)}`;
+                    const w = 14 + text.length * 7.2, h = 20;
+                    let ty = last.y - h / 2 - i * (h + 4);
+                    for (let k = 0; k < 8 && placedTags.some(r => Math.abs(r.y - ty) < h + 2 && r.x < right && r.x + r.w > right - w); k++) ty -= h + 4;
+                    ty = clamp(ty, pad.top, pad.top + plotH - h);
+                    const rect = { x: right - w, y: ty, w, h };
+                    placedTags.push(rect);
+                    return { key: `${player.id}-${tag.kind}`, color: player.color, text, ...rect };
+                });
+            });
+
+            return (
+                <div ref={boxRef} className="w-full h-full min-h-[360px]">
+                <svg className="block w-full h-full" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Challenge Score chart across ${currentDay} ${pointLabel.toLowerCase()}s`}>
+                        <defs>
+                            <linearGradient id="chart-area" x1="0" x2="0" y1="0" y2="1">
+                                <stop offset="0%" stopColor="#c8ff00" stopOpacity="0.2" />
+                                <stop offset="100%" stopColor="#c8ff00" stopOpacity="0" />
+                            </linearGradient>
+                        </defs>
+                        {yTicks.map((value, index) => {
+                            const py = y(value);
+                            return <g key={value}>
+                                <line x1={pad.left} x2={width - pad.right} y1={py} y2={py} stroke="#1e293b" strokeDasharray={index === 0 ? '0' : '5 8'} />
+                                <text x={pad.left - 10} y={py + 4} textAnchor="end" fill="#64748b" fontSize="16" fontWeight="700">{formatScore(value)}</text>
+                            </g>;
+                        })}
+                        {dayLabels.map(index => <g key={index}>
+                            <line x1={x(index)} x2={x(index)} y1={pad.top} y2={pad.top + plotH} stroke="#172033" strokeDasharray="4 8" />
+                            <text x={x(index)} y={height - 23} textAnchor="middle" fill="#94a3b8" fontSize="18" fontWeight="700">{labelForIndex(index)}</text>
+                        </g>)}
+                        <text x={pad.left} y="15" fill="#64748b" fontSize="16" fontWeight="800" letterSpacing="2">CHALLENGE SCORE</text>
+                        {series.map(({ player, points, line, last, area }) => {
+                            const { avatarX, avatarY } = endpointLayouts.get(player.id);
+                            return <g key={player.id}>
+                                {player.id === ME && <path d={area} fill="url(#chart-area)" />}
+                                <path d={line} fill="none" stroke={player.color} strokeWidth={player.id === ME ? 5 : 3.5} strokeLinecap="round" strokeLinejoin="round" opacity={player.id === ME ? 1 : 0.78} />
+                                {points.map((point, index) => <g key={index}>
+                                    {(index % 3 === 0 || index === points.length - 1) && <circle cx={point.x} cy={point.y} r={player.id === ME ? 4 : 3} fill="#060911" stroke={player.color} strokeWidth="2" />}
+                                    <title>{`${player.name}, ${labelForIndex(index)}: ${point.score.toLocaleString()} earned · ${point.total.toLocaleString()} total`}</title>
+                                </g>)}
+                                {(avatarX !== last.x || avatarY !== last.y) && <line x1={last.x} y1={last.y} x2={avatarX} y2={avatarY} stroke={player.color} strokeWidth="2" strokeDasharray="3 4" opacity="0.7" />}
+                                <g transform={`translate(${avatarX}, ${avatarY})`}>
+                                    <circle r="18" fill="#05070a" stroke={player.color} strokeWidth="3" />
+                                    <circle r="14" fill={`${player.color}33`} />
+                                    <clipPath id={`avatar-clip-${player.id}`}><circle r="15" /></clipPath>
+                                    <text y="6" textAnchor="middle" fontSize="15" fontWeight="900" fill={player.color}>{player.name[0]}</text>
+                                    <image href={avatarUrl(player)} x="-15" y="-15" width="30" height="30" clipPath={`url(#avatar-clip-${player.id})`} />
+                                    <title>{`${player.name} · ${formatScore(player.chartScore)} Challenge Score`}</title>
+                                </g>
+                            </g>;
+                        })}
+                        {tagLayouts.map(t => (
+                            <g key={t.key} transform={`translate(${t.x}, ${t.y})`}>
+                                <rect width={t.w} height={t.h} rx={t.h / 2} fill={t.color} fillOpacity="0.14" stroke={t.color} strokeOpacity="0.45" />
+                                <text x={t.w / 2} y={t.h / 2 + 4.5} textAnchor="middle" fontSize="12" fontWeight="800" fill={t.color}>{t.text}</text>
+                            </g>
+                        ))}
+                </svg>
+                </div>
+            );
+        }
+
+        // ---------- App ----------
+        function App() {
+            const [tab, setTab] = useState('leaderboard');
+            const [challengeZoom, setChallengeZoom] = useState('12h');
+            const [challengeRange, setChallengeRange] = useState('1m');
+            // In the product the platform is auto-detected; the demo shows Samsung Health.
+            const device = 'samsung';
+            const [refreshing, setRefreshing] = useState(false);
+            const [now, setNow] = useState(new Date());
+
+            const [bio, setBio] = useState({
+                hrv: 74, hrvBaseline: { median: 65, mad: 6, validDays: 30 },
+                rhr: 52, rhrBaseline: { median: 56, mad: 3, validDays: 30 },
+                sleep: { deep: 98, rem: 112, light: 282, awake: 40 }, sleepNeed: 480,
+                steps: 10420, stepGoal: 10000,
+                kcal: 540, kcalGoal: 700,
+                stress: { avg: 31, timeline: [18, 22, 35, 48, 52, 40, 28, 33, 62, 45, 30, 26, 24], calmPct: 64, highPct: 12 },
+                spo2: { avg: 96, min: 92 }, skinTemp: { delta: 0.6 },
+                vo2: { value: 48.2, trend: [46.1, 46.5, 46.9, 47.4, 47.6, 48.0, 48.2] },
+                bodyBattery: { now: 76, wake: 94, charged: 62, drained: 18, timeline: [32, 30, 41, 58, 74, 88, 94, 91, 86, 82, 79, 76] },
+                stepChecks: { monotonicTotal: true, plausibleRate: true, noDuplicateSource: true, locationConsistent: true },
+                screen: {
+                    total: 204, limit: 240, yesterday: 251, pickups: 58, lateNight: 42,
+                    categories: [['Social', 82, '#ec4899'], ['Entertainment', 64, '#f59e0b'], ['Productivity', 38, '#22d3ee'], ['Health & Fitness', 20, '#34d399']],
+                },
+            });
+
+            const [squad] = useState(SQUAD_INIT);
+
+            const [messages, setMessages] = useState(() => [
+                { id: 1, type: 'system', text: '📈 Month Challenge is live — verified daily scores now build your Challenge Score.', time: '6:00 AM' },
+                { id: 7, type: 'system', text: '🌙 Curfew report: 3/4 made it. Sakshyam broke curfew last night 👀', time: '6:01 AM', alert: true },
+                { id: 2, type: 'activity', userId: 2, time: '7:58 AM', reactions: { '🔥': [1, 4] },
+                  activity: { icon: '🏃', title: 'Morning Trail Run', stats: [['5.2 km', 'Distance'], ['27:41', 'Time'], ['94', 'Fair score']] } },
+                { id: 3, type: 'text', userId: 2, text: 'Woke up fresh with 92% recovery. Let’s crush the trail today!', time: '8:45 AM', reactions: { '💪': [3] } },
+                { id: 4, type: 'snap', userId: 3, time: '9:02 AM', opened: false, reactions: {},
+                  snap: { emoji: '😵‍💫', caption: 'Rough sleep, HRV bouncing back though 💀', bg: 'linear-gradient(135deg,#7c3aed,#db2777)' } },
+                { id: 5, type: 'poll', userId: 4, time: '9:10 AM', reactions: {},
+                  poll: { q: 'Group trail run at 6 PM?', options: [{ label: 'I’m in 🙋', votes: [2, 4] }, { label: 'Next time', votes: [3] }] } },
+                { id: 6, type: 'text', userId: 1, text: 'Heading out now, see you on the board 😤', time: '9:25 AM', reactions: {}, seenBy: [2, 3, 4] },
+                { id: 8, type: 'system', text: '⚡ Clutch announced: Sleep 7h+ tonight. Starts 10 PM, everyone’s in.', time: '10:00 AM' },
+            ]);
+            const [unread, setUnread] = useState(0);
+            const [input, setInput] = useState('');
+            const [typing, setTyping] = useState(null);
+            const [picker, setPicker] = useState(null);
+            const [sheet, setSheet] = useState(null); // 'menu' | 'snap' | 'poll' | 'challenge'
+            const [pollDraft, setPollDraft] = useState({ q: '', a: 'I’m in 🙋', b: 'Pass' });
+            const [snapView, setSnapView] = useState(null);
+            const [profile, setProfile] = useState(null);
+            const [page, setPage] = useState(null); // 'profile'
+            const [story, setStory] = useState(null); // { kind: 'daily' | 'weekly', idx }
+            const [seenStories, setSeenStories] = useState({});
+            const [group, setGroup] = useState('g1');
+            const [extras] = useState({ stress: true, vitals: true, vo2: true, screen: true }); // all on by default
+            const [settings] = useState({ curfew: '11 PM', bonus: true, phoneDownMins: 30 });
+            const [scoreAdj, setScoreAdj] = useState({ 2: 3, 3: -2, 4: 1 }); // challenge points applied to each member's score today
+            const [scoreEvents, setScoreEvents] = useState([ // why each member's score moved today
+                { id: 2, v: 2, kind: 'duel' }, { id: 3, v: -2, kind: 'duel' }, { id: 2, v: 1, kind: 'bonus' }, { id: 4, v: 1, kind: 'bonus' },
+            ]);
+            const [pool, setPool] = useState('duels');
+            const [clutches, setClutches] = useState(CLUTCH_INIT);
+            const [sentCount, setSentCount] = useState(0);
+            const [toast, setToast] = useState('');
+            const [gameStats, setGameStats] = useState({ clutchWins: 1, duelWins: 0, phoneDownSurvived: 0 });
+            const [draft, setDraft] = useState({ metric: 'steps', opp: 2 });
+            const [duels, setDuels] = useState([{ id: 'd0', opp: 2, metric: 'steps', status: 'live', fixed: true, theirs: 9880, endsLabel: 'tonight' }]);
+            const messagesRef = useRef(messages);
+            const duelsRef = useRef(duels);
+            const settingsRef = useRef(settings);
+            useEffect(() => { messagesRef.current = messages; }, [messages]);
+            useEffect(() => { duelsRef.current = duels; }, [duels]);
+            useEffect(() => { settingsRef.current = settings; }, [settings]);
+
+            const tabRef = useRef(tab);
+            const chatEndRef = useRef(null);
+            useEffect(() => { tabRef.current = tab; if (tab === 'chat') setUnread(0); }, [tab]);
+
+            // ---------- Derived metrics ----------
+            const src = device;
+            const sleepMin = bio.sleep.deep + bio.sleep.rem + bio.sleep.light;
+            const inBedMin = sleepMin + bio.sleep.awake;
+            const sleepEff = Math.round((sleepMin / inBedMin) * 100);
+            const fair = FairMath.calculateDailyScore({
+                // Raw HRV stays in its source-specific metric; it is never converted across vendors.
+                hrv: { value: bio.hrv, source: src, metric: SOURCES[src].hrv, baseline: { ...bio.hrvBaseline, source: src, metric: SOURCES[src].hrv }, freshnessHours: 4 },
+                rhr: { value: bio.rhr, source: src, metric: SOURCES[src].rhr, baseline: { ...bio.rhrBaseline, source: src, metric: SOURCES[src].rhr }, freshnessHours: 4 },
+                sleep: { durationHours: sleepMin / 60, efficiency: sleepEff, freshnessHours: 4 },
+                steps: { count: bio.steps, target: bio.stepGoal, checks: bio.stepChecks },
+            });
+            const hrvC = fair.hrv.score || 0;
+            const rhrC = fair.rhr.score || 0;
+            const sleepC = fair.sleep.score || 0;
+            const recovery = fair.recovery.score || 0;
+            const arenaScore = fair.composite.score || 0;
+            const recColor = recovery >= 67 ? '#34d399' : recovery >= 34 ? '#fbbf24' : '#f43f5e';
+            const recLabel = recovery >= 67 ? 'Primed to Perform' : recovery >= 34 ? 'Maintain' : 'Prioritize Rest';
+            const load = 0.6 * (fair.steps.targetAchievementRatio || 0) + 0.4 * Math.min(bio.kcal / bio.kcalGoal, 1.2);
+            const strain = Math.round(21 * (1 - Math.exp(-1.4 * load)) * 10) / 10;
+            const strainLabel = strain >= 18 ? 'All Out' : strain >= 14 ? 'Strenuous' : strain >= 10 ? 'Moderate' : 'Light';
+
+            const currentDailyScore = fair.leaderboardEligible ? arenaScore : 0;
+            const adj = (id) => scoreAdj[id] || 0;
+            const myToday = clamp(currentDailyScore + adj(ME), 0, DAILY_MAX);
+            const monthEntries = Object.fromEntries(Object.entries(MONTHLY_DAILY_SCORES).map(([id, arr]) => {
+                const days = [...arr.slice(0, CHALLENGE_DAY - 1), Number(id) === ME ? currentDailyScore : arr[CHALLENGE_DAY - 1]];
+                days[CHALLENGE_DAY - 1] = clamp(days[CHALLENGE_DAY - 1] + adj(id), 0, DAILY_MAX);
+                return [id, days];
+            }));
+            const monthSquad = squad.map(member => {
+                const dailyScores = monthEntries[member.id] || [];
+                return { ...member, dailyScores, challengeScore: toChallengeScore(dailyScores.reduce((sum, score) => sum + score, 0)) };
+            });
+            const ranked = [...monthSquad].sort((a, b) => b.challengeScore - a.challengeScore);
+            const myRank = ranked.findIndex(member => member.id === ME) + 1;
+            const byId = Object.fromEntries(monthSquad.map(member => [member.id, member]));
+            const me = byId[ME];
+            const challengeRangeConfig = CHALLENGE_RANGES[challengeRange];
+            const chartSquad = monthSquad.map(member => {
+                const fairEntries = challengeRange === '3m'
+                    ? QUARTERLY_WEEKLY_SCORES[member.id]
+                    : challengeRange === '2w'
+                        ? member.dailyScores.slice(-14)
+                        : member.dailyScores;
+                const chartEntries = fairEntries.map(toChallengeScore);
+                return { ...member, chartEntries, chartScore: chartEntries.reduce((sum, score) => sum + score, 0) };
+            });
+            const intradayChartSquad = monthSquad.map(member => {
+                const intradayEntries = [...INTRADAY_CHALLENGE_INCREMENTS[member.id]];
+                if (member.id === ME) {
+                    const accruedBeforeNow = intradayEntries.slice(0, -1).reduce((sum, score) => sum + score, 0);
+                    intradayEntries[intradayEntries.length - 1] = Math.max(0, myToday - accruedBeforeNow);
+                } else {
+                    intradayEntries[intradayEntries.length - 1] = Math.max(0, intradayEntries[intradayEntries.length - 1] + adj(member.id));
+                }
+                const baseScore = toChallengeScore(member.dailyScores.slice(0, CHALLENGE_DAY - 1).reduce((sum, score) => sum + score, 0));
+                const chartEntries = intradayEntries.map(toChallengeScore);
+                return { ...member, baseScore, chartEntries, chartScore: baseScore + chartEntries.reduce((sum, score) => sum + score, 0) };
+            });
+            const tagsFor = (id) => Object.entries(scoreEvents.filter(e => e.id === id).reduce((acc, e) => ({ ...acc, [e.kind]: Math.round(((acc[e.kind] || 0) + e.v) * 10) / 10 }), {}))
+                .filter(([, v]) => v).map(([kind, v]) => ({ kind, v }));
+            const activeChartSquad = (challengeZoom === '12h' ? intradayChartSquad : chartSquad)
+                .map(m => ({ ...m, tags: challengeZoom === '12h' ? tagsFor(m.id) : [] }));
+            const chartPointLabel = challengeZoom === '12h' ? 'Time' : challengeRangeConfig.pointLabel;
+            const chartLabelForIndex = challengeZoom === '12h'
+                ? (index) => INTRADAY_LABELS[index]
+                : (index) => `${challengeRangeConfig.pointLabel} ${index + 1}`;
+
+            // ---------- Feed helpers ----------
+            const post = (msg) => {
+                setMessages(prev => [...prev, { id: uid(), time: fmtTime(new Date()), reactions: {}, ...msg }]);
+                if (tabRef.current !== 'chat') setUnread(u => u + 1);
+            };
+            const updateMsg = (id, fn) => setMessages(prev => prev.map(m => (m.id === id ? fn(m) : m)));
+            const toggleReaction = (id, emoji, userId = ME) => updateMsg(id, (m) => {
+                const r = { ...(m.reactions || {}) };
+                const list = r[emoji] || [];
+                r[emoji] = list.includes(userId) ? list.filter(u => u !== userId) : [...list, userId];
+                if (!r[emoji].length) delete r[emoji];
+                return { ...m, reactions: r };
+            });
+            const others = () => squad.filter(m => m.id !== ME);
+            const randomOther = () => { const o = others(); return o[Math.floor(Math.random() * o.length)]; };
+
+            const simulateReplies = (msgId) => {
+                const responder = randomOther();
+                setTimeout(() => toggleReaction(msgId, REACTIONS[Math.floor(Math.random() * 3)], randomOther().id), 900);
+                setTimeout(() => setTyping(responder.id), 1300);
+                setTimeout(() => {
+                    setTyping(null);
+                    const lines = REPLIES[responder.id];
+                    post({ type: 'text', userId: responder.id, text: lines[Math.floor(Math.random() * lines.length)] });
+                    updateMsg(msgId, m => ({ ...m, seenBy: others().map(o => o.id) }));
+                }, 3000);
+            };
+
+            const sendText = (text) => {
+                const t = text.trim();
+                if (!t) return;
+                const id = uid();
+                setMessages(prev => [...prev, { id, type: 'text', userId: ME, text: t, time: fmtTime(new Date()), reactions: {} }]);
+                setInput('');
+                simulateReplies(id);
+            };
+
+            useEffect(() => {
+                const clock = setInterval(() => setNow(new Date()), 1000);
+                return () => clearInterval(clock);
+            }, []);
+
+            // ---------- Maps engine ----------
+            const [mapMode, setMapMode] = useState('live');
+            const [selRoute, setSelRoute] = useState('r1');
+            const [map, setMap] = useState({ live: LIVE_INIT, hexes: HEXES_INIT, routes: ROUTES_INIT, run: null, trails: { 1: [], 2: [], 3: [], 4: [] }, rally: null });
+            const [center, setCenter] = useState(DEFAULT_CENTER);
+            const [follow, setFollow] = useState(true);
+            const [focus, setFocus] = useState(null);
+            const [rallyArm, setRallyArm] = useState(false);
+            const [shareLocation, setShareLocation] = useState(true);
+            const [geoNote, setGeoNote] = useState('');
+            const mapRef = useRef(map);
+            const stealRef = useRef({});
+            const leaderRef = useRef(null);
+            const tickRef = useRef(0);
+            const commitMap = (next) => { mapRef.current = next; setMap(next); };
+            const routeOf = (s, id) => s.routes.find(r => r.id === id);
+            const isMoving = (s, id) => (id === ME ? !!s.run : !!s.live[id].route);
+            const posOf = (s, id) => {
+                if (id === ME && s.run) return pointAt(routeOf(s, s.run.routeId).pts, s.run.t);
+                const lv = s.live[id];
+                return lv.route ? pointAt(routeOf(s, lv.route).pts, lv.t) : lv.home;
+            };
+            const hexCount = (hexes, id) => Object.values(hexes).filter(o => o === id).length;
+
+            const mapTick = () => {
+                const s = mapRef.current;
+                tickRef.current += 1;
+                const live = {};
+                Object.entries(s.live).forEach(([k, lv]) => {
+                    if (!lv.route) { live[k] = lv; return; }
+                    let dir = lv.dir || 1, t = lv.t + lv.speed * dir;
+                    if (lv.pingpong) { if (t >= 1) { t = 1; dir = -1; } if (t <= 0) { t = 0; dir = 1; } }
+                    else t = t % 1;
+                    live[k] = { ...lv, t, dir };
+                });
+                let run = s.run, finished = null;
+                if (run) { run = { ...run, t: Math.min(1, run.t + 1 / RUN_TICKS) }; if (run.t >= 1) finished = run; }
+                let next = { ...s, live, run };
+
+                // Paint hexes along each mover's path since the last tick.
+                const hexes = { ...s.hexes }, trails = {};
+                let myCaps = 0;
+                SQUAD_INIT.forEach(m => {
+                    if (!isMoving(next, m.id)) { trails[m.id] = []; return; }
+                    const to = posOf(next, m.id);
+                    const from = isMoving(s, m.id) ? posOf(s, m.id) : to;
+                    [0.5, 1].forEach(f => {
+                        const id = pxToHexId(from[0] + (to[0] - from[0]) * f, from[1] + (to[1] - from[1]) * f);
+                        if (!(id in hexes) || hexes[id] === m.id) return;
+                        if (hexes[id] === ME && m.id !== ME) stealRef.current[m.id] = (stealRef.current[m.id] || 0) + 1;
+                        hexes[id] = m.id;
+                        if (m.id === ME) myCaps += 1;
+                    });
+                    trails[m.id] = [...(s.trails[m.id] || []), to].slice(-14);
+                });
+                if (run) run = { ...run, captured: (run.captured || 0) + myCaps };
+                next = { ...next, run, hexes, trails };
+
+                const events = [];
+                if (tickRef.current % 12 === 0) {
+                    Object.entries(stealRef.current).forEach(([id, n]) => events.push({ type: 'system', text: `🗺️ ${nameOf(id)} stole ${n} of your hexes`, alert: true }));
+                    stealRef.current = {};
+                }
+                const leader = SQUAD_INIT.map(m => [m.id, hexCount(hexes, m.id)]).sort((a, b) => b[1] - a[1])[0];
+                if (leaderRef.current && leaderRef.current !== leader[0]) events.push({ type: 'system', text: `👑 ${nameOf(leader[0])} now ${leader[0] === ME ? 'control' : 'controls'} the most territory (${leader[1]} hexes)` });
+                leaderRef.current = leader[0];
+
+                if (finished) {
+                    const r = routeOf(s, finished.routeId);
+                    const time = Math.round(finished.target);
+                    const king = r.record;
+                    const newKing = time < king.time && king.userId !== ME;
+                    const pb = time < r.best;
+                    next = { ...next, run: null, trails: { ...next.trails, [ME]: [] }, routes: next.routes.map(x => x.id === r.id
+                        ? { ...x, best: Math.min(x.best, time), record: time < x.record.time ? { userId: ME, time } : x.record } : x) };
+                    events.push({ type: 'activity', userId: ME, activity: { icon: '🏃', title: r.name, stats: [[`${r.km} km`, 'Distance'], [fmtClock(time), 'Time'], [`+${run.captured}`, 'Hexes']] } });
+                    events.push({ type: 'system', text: time < king.time ? `👻 You beat ${king.userId === ME ? 'your own' : `${nameOf(king.userId)}’s`} ghost by ${king.time - time}s` : `👻 ${king.userId === ME ? 'Your old self' : `${nameOf(king.userId)}’s ghost`} won by ${time - king.time}s`, alert: time >= king.time });
+                    if (newKing) events.push({ type: 'system', text: `👑 You’re the new King of ${r.name}!` });
+                    else if (pb) events.push({ type: 'system', text: `⚡ New PB on ${r.name}: ${fmtClock(time)}` });
+                }
+                commitMap(next);
+                events.forEach(post);
+            };
+
+            useEffect(() => {
+                const id = setInterval(mapTick, 1000);
+                return () => clearInterval(id);
+            }, []);
+
+            const startRun = (routeId) => {
+                const r = routeOf(mapRef.current, routeId);
+                setFollow(true);
+                commitMap({ ...mapRef.current, run: { routeId, t: 0, captured: 0, target: r.best * (0.9 + Math.random() * 0.14) } });
+            };
+            const stopRun = () => commitMap({ ...mapRef.current, run: null, trails: { ...mapRef.current.trails, [ME]: [] } });
+            const placeRally = (latlng) => {
+                const [x, y] = toPx(center, latlng.lat, latlng.lng);
+                commitMap({ ...mapRef.current, rally: { x, y, label: '6 PM run' } });
+                setRallyArm(false);
+                post({ type: 'system', text: '📍 You dropped a rally point for a 6 PM squad run' });
+                setTimeout(() => post({ type: 'text', userId: 2, text: 'Pulling up 🏃' }), 2000);
+                setTimeout(() => post({ type: 'text', userId: 4, text: 'In. Loser buys smoothies 🥤' }), 3800);
+            };
+            const useMyLocation = () => {
+                if (!navigator.geolocation) { setGeoNote('Location isn’t available in this browser'); return; }
+                setGeoNote('Finding you…');
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => { setCenter([pos.coords.latitude, pos.coords.longitude]); setGeoNote(''); },
+                    () => setGeoNote('Location blocked: showing the demo area'),
+                    { timeout: 8000 },
+                );
+            };
+
+            useEffect(() => {
+                if (tab === 'chat') chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            }, [messages.length, typing, tab]);
+
+            useEffect(() => {
+                if (!snapView) return;
+                const t = setTimeout(() => setSnapView(null), 4000);
+                return () => clearTimeout(t);
+            }, [snapView]);
+
+            const simulateSync = () => {
+                if (refreshing) return;
+                setRefreshing(true);
+                setTimeout(() => {
+                    setBio(prev => ({ ...prev, steps: prev.steps + 450, kcal: prev.kcal + 25 }));
+                    setRefreshing(false);
+                }, 700);
+            };
+
+            // ---------- Feed actions ----------
+            const shareStats = () => {
+                setSheet(null);
+                const id = uid();
+                setMessages(prev => [...prev, { id, type: 'stats', userId: ME, time: fmtTime(new Date()), reactions: {},
+                    stats: { recovery, recColor, strain, steps: bio.steps, sleep: fmtHM(sleepMin), rank: myRank } }]);
+                simulateReplies(id);
+            };
+            const sendSnap = (preset) => {
+                setSheet(null);
+                const id = uid();
+                setMessages(prev => [...prev, { id, type: 'snap', userId: ME, time: fmtTime(new Date()), reactions: {}, snap: preset }]);
+                simulateReplies(id);
+            };
+            const sendPoll = () => {
+                if (!pollDraft.q.trim()) return;
+                setSheet(null);
+                post({ type: 'poll', userId: ME, poll: { q: pollDraft.q.trim(), options: [{ label: pollDraft.a || 'Yes', votes: [] }, { label: pollDraft.b || 'No', votes: [] }] } });
+                setPollDraft({ q: '', a: 'I’m in 🙋', b: 'Pass' });
+            };
+            const vote = (msgId, idx, userId = ME) => updateMsg(msgId, (m) => ({
+                ...m, poll: { ...m.poll, options: m.poll.options.map((o, i) => ({ ...o, votes: i === idx ? (o.votes.includes(userId) ? o.votes : [...o.votes, userId]) : o.votes.filter(v => v !== userId) })) },
+            }));
+            const nudge = (m) => { setProfile(null); post({ type: 'system', text: `👉 You nudged ${m.name} to get moving` }); setTimeout(() => post({ type: 'text', userId: m.id, text: 'ok ok I’m up 😤' }), 2200); };
+            // ---------- Challenge pools ----------
+            // 1. 1v1 duels:           winner +2, loser −2 on today's score.
+            // 2. Squad challenges:     sent by a player (incl. Phone Down). React to join. At the end of the day every
+            //                          player who didn't finish loses 2; those points are split between the finishers.
+            // 3. Clutch:               announced by Clutch 12 hours ahead. Everyone in the group is in. Same split rule.
+            // 4. Bonus:                sent by Clutch at random. Opt in; everyone who finishes earns points, nobody is penalized.
+            const ALL_MEMBERS = [...SQUAD_INIT, ...MORNING_RUNNERS];
+            const nameOf = (id) => (Number(id) === ME ? 'You' : (ALL_MEMBERS.find(x => x.id === Number(id)) || {}).name);
+            const joinedOf = (msg) => [...new Set([...(msg.type === 'bonus' ? [] : [msg.userId]), ...Object.values(msg.reactions || {}).flat()])];
+            const leftSec = (endsAt) => Math.max(0, Math.ceil((endsAt - now.getTime()) / 1000));
+            const fmtPts = (v) => { const n = Math.abs(v); return `${v > 0 ? '+' : v < 0 ? '−' : ''}${Number.isInteger(n) ? n : n.toFixed(1)} pts`; };
+            const addPoints = (delta, kind) => {
+                setScoreEvents(ev => [...ev, ...Object.entries(delta).filter(([, v]) => v).map(([id, v]) => ({ id: Number(id), v, kind }))]);
+                setScoreAdj(p => {
+                const n = { ...p };
+                Object.entries(delta).forEach(([k, v]) => { n[k] = Math.round(((n[k] || 0) + v) * 10) / 10; });
+                return n;
+            });
+            };
+            const simJoin = (id, chance = 0.75) => others().forEach((o, i) => {
+                if (Math.random() < chance) setTimeout(() => toggleReaction(id, REACTIONS[Math.floor(Math.random() * REACTIONS.length)], o.id), 1200 + i * 1100 + Math.random() * 900);
+            });
+            // Split rule for squad challenges: non-finishers −STAKE each, finishers share the total.
+            const splitDelta = (finished, failed) => {
+                if (!finished.length || !failed.length) return {};
+                const share = Math.round(((STAKE * failed.length) / finished.length) * 10) / 10;
+                const d = {};
+                failed.forEach(id => { d[id] = -STAKE; });
+                finished.forEach(id => { d[id] = share; });
+                return d;
+            };
+
+            const resolveGame = (id) => {
+                const msg = messagesRef.current.find(m => m.id === id);
+                if (!msg || msg.result) return;
+                const players = joinedOf(msg);
+                const finished = players.filter(() => Math.random() < 0.65);
+                const failed = players.filter(p => !finished.includes(p));
+                if (msg.type === 'bonus') {
+                    if (!players.length) { updateMsg(id, m => ({ ...m, result: { none: true } })); return; }
+                    const delta = Object.fromEntries(finished.map(p => [p, msg.bonus.reward]));
+                    addPoints(delta, 'bonus');
+                                        updateMsg(id, m => ({ ...m, result: { finished, failed, delta } }));
+                    post({ type: 'system', text: `💥 Just do it: ${finished.length}/${players.length} finished · +${msg.bonus.reward} pts each` });
+                    return;
+                }
+                if (players.length < 2) {
+                    updateMsg(id, m => ({ ...m, result: { none: true } }));
+                    post({ type: 'system', text: `🏁 “${msg.challenge.title}” closed: nobody took it` });
+                    return;
+                }
+                const delta = splitDelta(finished, failed);
+                addPoints(delta, 'squad');
+                updateMsg(id, m => ({ ...m, result: { finished, failed, delta } }));
+                post({ type: 'system', text: `🏁 “${msg.challenge.title}”: ${finished.length} finished, ${failed.length} didn’t${delta[ME] ? ` · you ${fmtPts(delta[ME])}` : ''}`, alert: (delta[ME] || 0) < 0 });
+            };
+
+            // ---- Send limit: 3 challenges (squad, Phone Down or 1v1) per day ----
+            const sendsLeft = Math.max(0, MAX_SENDS - sentCount);
+            const flash = (text) => { setToast(text); setTimeout(() => setToast(''), 2600); };
+            const useSend = () => {
+                if (sentCount >= MAX_SENDS) { setSheet(null); flash(`You’ve sent all ${MAX_SENDS} challenges for today`); return false; }
+                setSentCount(c => c + 1);
+                return true;
+            };
+            // If nobody else accepts in time, the challenge is removed.
+            const expireIfUnaccepted = (id, title) => {
+                const msg = messagesRef.current.find(m => m.id === id);
+                if (!msg || joinedOf(msg).some(p => p !== ME)) return;
+                setMessages(prev => prev.filter(m => m.id !== id));
+                post({ type: 'system', text: `⌛ Nobody accepted ${title}. It’s gone.` });
+            };
+
+            const sendChallenge = () => {
+                if (!useSend()) return;
+                const v = VARIABLES.find(x => x.key === draft.metric);
+                setSheet(null);
+                const id = uid();
+                setMessages(prev => [...prev, { id, type: 'challenge', userId: ME, time: fmtTime(new Date()), reactions: {}, challenge: { title: v.title, icon: v.icon, acceptBy: Date.now() + 12000, endsAt: Date.now() + 30000 } }]);
+                simJoin(id, 0.6);
+                setTimeout(() => expireIfUnaccepted(id, `“${v.title}”`), 12000);
+                setTimeout(() => resolveGame(id), 30000);
+            };
+
+            // ---- Clutch: scheduled, mandatory for the whole group ----
+            // Your own result is computed on this device. For screen time on iPhone this would come from a
+            // DeviceActivity threshold event (Screen Time API): the app only learns "limit crossed: yes / no".
+            const clutchCheck = (c) => {
+                if (c.kind === 'screen') {
+                    const pass = bio.screen.total <= c.limit;
+                    return { pass, note: pass ? `${fmtHM(c.limit - bio.screen.total)} left under the limit` : 'Over the limit' };
+                }
+                const pass = sleepMin >= c.target;
+                return { pass, note: pass ? `${fmtHM(sleepMin)} last night` : 'Under 7h' };
+            };
+            const settleClutch = (id) => {
+                const c = clutches.find(x => x.id === id);
+                if (!c || c.status === 'done') return;
+                const finished = squad.filter(m => (m.id === ME ? clutchCheck(c).pass : c.squadPass[m.id])).map(m => m.id);
+                const failed = squad.map(m => m.id).filter(x => !finished.includes(x));
+                const delta = splitDelta(finished, failed);
+                addPoints(delta, 'clutch');
+                if (finished.includes(ME)) setGameStats(st => ({ ...st, clutchWins: st.clutchWins + 1 }));
+                setClutches(cs => cs.map(x => (x.id === id ? { ...x, status: 'done', result: { finished, failed, delta } } : x)));
+                post({ type: 'system', text: `⚡ Clutch “${c.title}”: ${finished.length} passed, ${failed.length} didn’t${delta[ME] ? ` · you ${fmtPts(delta[ME])}` : ''}`, alert: (delta[ME] || 0) < 0 });
+            };
+            const startClutch = (id) => setClutches(cs => cs.map(x => (x.id === id ? { ...x, status: 'live' } : x)));
+
+            const triggerBonus = () => {
+                const c = BONUS_CHALLENGES[Math.floor(Math.random() * BONUS_CHALLENGES.length)];
+                const id = uid();
+                setMessages(prev => [...prev, { id, type: 'bonus', time: fmtTime(new Date()), reactions: {}, bonus: { ...c, endsAt: Date.now() + 25000 } }]);
+                if (tabRef.current !== 'chat') setUnread(u => u + 1);
+                simJoin(id, 0.7);
+                setTimeout(() => resolveGame(id), 25000);
+            };
+            useEffect(() => {
+                const first = setTimeout(() => settingsRef.current.bonus && triggerBonus(), 12000);
+                const loop = setInterval(() => settingsRef.current.bonus && triggerBonus(), 90000);
+                return () => { clearTimeout(first); clearInterval(loop); };
+            }, []);
+
+            // Phone Down is a squad challenge: whoever picks up first didn't finish (−2), the rest split it.
+            const pickUp = (id, who) => {
+                const msg = messagesRef.current.find(m => m.id === id);
+                if (!msg || msg.result) return;
+                const players = joinedOf(msg);
+                if (!players.includes(who)) return;
+                const finished = players.filter(p => p !== who);
+                const delta = splitDelta(finished, [who]);
+                addPoints(delta, 'squad');
+                updateMsg(id, m => ({ ...m, result: { loser: who, finished, failed: [who], delta } }));
+                post({ type: 'system', text: `📵 ${nameOf(who)} picked up first · ${fmtPts(-STAKE)}`, alert: who === ME });
+            };
+            const endPhoneDown = (id) => {
+                const msg = messagesRef.current.find(m => m.id === id);
+                if (!msg || msg.result) return;
+                const players = joinedOf(msg);
+                updateMsg(id, m => ({ ...m, result: { survived: players, finished: players, failed: [], delta: {} } }));
+                if (players.includes(ME)) setGameStats(st => ({ ...st, phoneDownSurvived: st.phoneDownSurvived + 1 }));
+                post({ type: 'system', text: `📵 Phone Down complete: all ${players.length} held strong 💪` });
+            };
+            const startPhoneDown = () => {
+                if (!useSend()) return false;
+                setSheet(null);
+                const id = uid(), dur = 30000;
+                setMessages(prev => [...prev, { id, type: 'phonedown', userId: ME, time: fmtTime(new Date()), reactions: {}, phonedown: { mins: settingsRef.current.phoneDownMins, startsAt: Date.now(), dur } }]);
+                simJoin(id, 0.7);
+                setTimeout(() => expireIfUnaccepted(id, 'your Phone Down'), 8000);
+                setTimeout(() => {
+                    const msg = messagesRef.current.find(m => m.id === id);
+                    const sims = msg ? joinedOf(msg).filter(p => p !== ME) : [];
+                    if (sims.length && Math.random() < 0.6) pickUp(id, sims[Math.floor(Math.random() * sims.length)]);
+                }, 9000 + Math.random() * 15000);
+                setTimeout(() => endPhoneDown(id), dur);
+            };
+
+            // 1v1 duels: winner +2, loser −2.
+            const startDuel = () => {
+                if (!useSend()) return;
+                const { opp, metric } = draft, v = VARIABLES.find(x => x.key === metric);
+                const accepts = Math.random() < 0.7;
+                const id = uid(), dur = 35000;
+                setSheet(null);
+                setPool('duels');
+                setDuels(ds => [{ id, opp, metric, status: 'pending', startsAt: Date.now() + 1800, dur, rateMe: 0.6 + Math.random() * 0.4, rateOpp: 0.6 + Math.random() * 0.4 }, ...ds]);
+                post({ type: 'system', text: `⚔️ You challenged ${nameOf(opp)} to a ${v.label} duel · ±${STAKE} pts` });
+                if (!accepts) {
+                    // Not accepted in time: the duel is gone.
+                    setTimeout(() => {
+                        setDuels(ds => ds.filter(d => d.id !== id));
+                        post({ type: 'system', text: `⌛ ${nameOf(opp)} didn’t accept your duel. It’s gone.` });
+                    }, 6000);
+                    return;
+                }
+                setTimeout(() => {
+                    setDuels(ds => ds.map(d => (d.id === id ? { ...d, status: 'live' } : d)));
+                    post({ type: 'system', text: `⚔️ ${nameOf(opp)} accepted your duel` });
+                }, 1800);
+                setTimeout(() => {
+                    const d = duelsRef.current.find(x => x.id === id);
+                    if (!d || d.status === 'done') return;
+                    const w = d.rateMe >= d.rateOpp ? ME : d.opp, l = w === ME ? d.opp : ME;
+                    addPoints({ [w]: STAKE, [l]: -STAKE }, 'duel');
+                    if (w === ME) setGameStats(st => ({ ...st, duelWins: st.duelWins + 1 }));
+                    setDuels(ds => ds.map(x => (x.id === id ? { ...x, status: 'done', winner: w } : x)));
+                    post({ type: 'system', text: w === ME ? `⚔️ You beat ${nameOf(d.opp)} in the ${v.label} duel · +${STAKE} pts` : `⚔️ ${nameOf(d.opp)} beat you in the ${v.label} duel · −${STAKE} pts`, alert: w !== ME });
+                }, 1800 + dur);
+            };
+            const openDuel = (opp) => { setProfile(null); setPage(null); setDraft(d => ({ ...d, opp })); setSheet('duel'); };
+
+            // ---------- Derived: rival, badges, awards, stories ----------
+            const enabledVars = VARIABLES.filter(v => v.title && (v.core || extras[v.key]));
+            const rival = (() => {
+                const i = ranked.findIndex(m => m.id === ME);
+                return [ranked[i - 1], ranked[i + 1]].filter(Boolean)
+                    .sort((a, b) => Math.abs(a.challengeScore - me.challengeScore) - Math.abs(b.challengeScore - me.challengeScore))[0];
+            })();
+            const myZones = hexCount(map.hexes, ME);
+            const isG1 = group === 'g1';
+            const badges = BADGES.map(b => {
+                const prog = isG1 ? ({ clutch: gameStats.clutchWins, duel: gameStats.duelWins, phone: gameStats.phoneDownSurvived, turf: myZones }[b.id] ?? b.have) : G2.badges[b.id];
+                return { ...b, have: Math.min(prog, b.need), earned: prog >= b.need };
+            });
+            // Profile, streaks, badges and stories all follow the selected group.
+            const gp = isG1
+                ? { rank: myRank, size: squad.length, challenge: me.challengeScore, today: myToday, streaks: { sleep: SQUAD_EXTRA[ME].sleepStreak, curfew: SQUAD_EXTRA[ME].curfewStreak, steps: SQUAD_EXTRA[ME].stepStreak } }
+                : { rank: G2.rank, size: G2.members.length, challenge: G2.challenge, today: G2.today, streaks: G2.streaks };
+            const roster = isG1
+                ? squad.map(m => ({ ...byId[m.id], stress: SQUAD_EXTRA[m.id].stress, vo2: SQUAD_EXTRA[m.id].vo2, curfewLast: SQUAD_EXTRA[m.id].curfewLast }))
+                : G2.members.map(id => ({ ...(ALL_MEMBERS.find(x => x.id === id)), ...G2.stats[id] }));
+            const rosterById = Object.fromEntries(roster.map(m => [m.id, m]));
+            const groupObj = GROUPS.find(g => g.id === group);
+            const chillest = [...roster].sort((a, b) => a.stress - b.stress)[0];
+            const mvp = [...roster].sort((a, b) => b.recovery - a.recovery)[0];
+            const vo2Top = [...roster].sort((a, b) => b.vo2 - a.vo2)[0];
+            const leaderId = isG1 ? ranked[0].id : G2.leader;
+            const turfTop = squad.map(m => ({ id: m.id, count: hexCount(map.hexes, m.id) })).sort((a, b) => b.count - a.count)[0];
+            const curfewFails = roster.filter(m => !m.curfewLast);
+            const hero = (id) => <Avatar m={rosterById[id]} size={110} />;
+            const dailySlides = [
+                { bg: 'linear-gradient(160deg,#1a2e05,#05070a 70%)', kicker: 'MVP of the day', hero: hero(mvp.id), title: `${nameOf(mvp.id)} woke up at ${mvp.recovery}%`, sub: `Highest recovery in ${groupObj.name}` },
+                { bg: 'linear-gradient(160deg,#064e3b,#05070a 70%)', kicker: 'Most chill', hero: hero(chillest.id), title: `${nameOf(chillest.id)} stayed calm`, sub: `Average stress ${chillest.stress}/100` },
+                { bg: 'linear-gradient(160deg,#312e81,#05070a 70%)', kicker: 'Curfew report', title: `${roster.length - curfewFails.length}/${roster.length} made curfew`,
+                  hero: <div className="flex -space-x-3">{roster.map(m => <div key={m.id} className={m.curfewLast ? '' : 'opacity-40 grayscale'}><Avatar m={m} size={roster.length > 5 ? 44 : 58} /></div>)}</div>,
+                  sub: curfewFails.length ? `${curfewFails.map(m => nameOf(m.id)).join(', ')} broke it 👀` : 'Perfect night 🌙' },
+                { bg: 'linear-gradient(160deg,#78350f,#05070a 70%)', kicker: 'Challenge leader', hero: hero(leaderId), title: `${nameOf(leaderId)} ${leaderId === ME ? 'are' : 'is'} #1 this month`, sub: groupObj.name },
+                { bg: 'linear-gradient(160deg,#0e7490,#05070a 70%)', kicker: 'Your day', title: `${bio.steps.toLocaleString()} steps · ${fmtHM(sleepMin)} sleep`, sub: `#${gp.rank} of ${gp.size} in ${groupObj.name}`,
+                  hero: <Ring value={recovery} size={130} stroke={10} color={recColor}><span className="text-4xl font-black" style={{ color: recColor }}>{recovery}%</span></Ring> },
+            ];
+            const weeklySlides = [
+                { bg: 'linear-gradient(160deg,#701a75,#05070a 70%)', kicker: `${groupObj.name} this week`, hero: <p className="text-7xl font-black text-white">{isG1 ? '271k' : G2.week.steps}</p>, title: 'steps together', sub: isG1 ? '58.4 km run · 14 workouts' : G2.week.sub },
+                { bg: 'linear-gradient(160deg,#4c1d95,#05070a 70%)', kicker: 'Top sleeper', hero: hero(isG1 ? 2 : G2.week.sleeper[0]), title: isG1 ? 'Anshu averaged 8h 05m' : G2.week.sleeper[1], sub: '6 of 7 nights in the optimal window' },
+                { bg: 'linear-gradient(160deg,#075985,#05070a 70%)', kicker: 'Highest VO₂ max', hero: hero(vo2Top.id), title: `${nameOf(vo2Top.id)} · ${vo2Top.vo2}`, sub: 'Cardio fitness crown 🫁' },
+                isG1
+                    ? { bg: 'linear-gradient(160deg,#14532d,#05070a 70%)', kicker: 'Turf boss', hero: hero(turfTop.id), title: `${nameOf(turfTop.id)} ${turfTop.id === ME ? 'hold' : 'holds'} ${turfTop.count} hexes`, sub: 'Run through hexes on Maps to steal them' }
+                    : { bg: 'linear-gradient(160deg,#14532d,#05070a 70%)', kicker: 'Clutch champ', hero: hero(G2.week.clutchChamp[0]), title: G2.week.clutchChamp[1], sub: '5 for 5 this week ⚡' },
+                { bg: 'linear-gradient(160deg,#3f6212,#05070a 70%)', kicker: 'Your week', hero: <p className="text-7xl font-black text-[#c8ff00]">#{gp.rank}</p>, title: `${gp.streaks.curfew}-night curfew streak · ${gp.challenge.toLocaleString()} pts`, sub: `${badges.filter(b => b.earned).length} badges unlocked` },
+            ];
+            const storyLen = story ? (story.kind === 'daily' ? dailySlides : weeklySlides).length : 0;
+            useEffect(() => {
+                if (!story) return;
+                const t = setTimeout(() => setStory(st => (!st ? st : st.idx < storyLen - 1 ? { ...st, idx: st.idx + 1 } : null)), 4000);
+                return () => clearTimeout(t);
+            }, [story, storyLen]);
+
+            // ---------- Small UI helpers ----------
+            const deltaRow = (delta) => (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                    {Object.entries(delta).map(([id, v]) => (
+                        <span key={id} className={`flex items-center gap-1 text-[10px] font-black pl-0.5 pr-1.5 py-0.5 rounded-full border ${v > 0 ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10' : v < 0 ? 'text-rose-300 border-rose-500/30 bg-rose-500/10' : 'text-slate-400 border-slate-700'}`}>
+                            <Avatar m={byId[id]} size={14} />{fmtPts(v)}
+                        </span>
+                    ))}
+                </div>
+            );
+            const joinControl = (msg) => (joinedOf(msg).includes(ME)
+                ? <span className="text-[10px] font-black text-emerald-400">✓ You’re in</span>
+                : <button onClick={(e) => { e.stopPropagation(); toggleReaction(msg.id, '🔥'); }} className="text-[11px] font-black bg-[#c8ff00] text-black px-3 py-1.5 rounded-lg">🔥 React to join</button>);
+            const metricPicker = (
+                <div>
+                    <p className="text-[10px] uppercase font-black text-slate-500 mb-1.5">Variable</p>
+                    <div className="flex flex-wrap gap-2">
+                        {enabledVars.map(v => <button key={v.key} onClick={() => setDraft(d => ({ ...d, metric: v.key }))} className={`px-3 py-2 rounded-xl text-xs font-black border transition ${draft.metric === v.key ? 'bg-[#c8ff00] text-black border-[#c8ff00]' : 'bg-[#0e1422] border-slate-800 text-slate-300'}`}>{v.icon} {v.label}</button>)}
+                    </div>
+                    <p className="text-[11px] font-bold text-slate-300 mt-2">“{(VARIABLES.find(v => v.key === draft.metric) || {}).title}”</p>
+                </div>
+            );
+            const hype = (m) => { setProfile(null); post({ type: 'system', text: `🔥 You hyped ${m.name}` }); };
+
+            // ---------- Render: message ----------
+            const renderMessage = (msg, i) => {
+                if (msg.type === 'system') {
+                    return (
+                        <div key={msg.id} className="flex justify-center animate-fadeIn">
+                            <span className={`text-[10px] font-bold px-3 py-1.5 rounded-full border ${msg.alert ? 'bg-rose-500/10 border-rose-500/30 text-rose-300' : 'bg-cyan-950/40 border-cyan-800/40 text-cyan-300'}`}>
+                                {msg.text} <span className="text-slate-500 font-medium ml-1">{msg.time}</span>
+                            </span>
+                        </div>
+                    );
+                }
+                if (msg.type === 'bonus') {
+                    const c = msg.bonus, players = joinedOf(msg);
+                    const rx = Object.entries(msg.reactions || {});
+                    return (
+                        <div key={msg.id} className="flex flex-col items-center animate-fadeIn">
+                            <div className="relative w-[90%] rounded-2xl p-[1.5px] bg-gradient-to-r from-[#c8ff00] via-amber-400 to-[#c8ff00] cursor-pointer" onClick={() => setPicker(picker === msg.id ? null : msg.id)}>
+                                <div className="rounded-[15px] bg-[#0b0f08] p-3.5">
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-[9px] uppercase font-black tracking-[0.2em] text-[#c8ff00]">💥 Just do it · from Clutch</p>
+                                        <span className="text-[10px] font-black text-amber-300">+{c.reward} pts each</span>
+                                    </div>
+                                    <p className="text-sm font-black text-white mt-1">{c.icon} {c.title}</p>
+                                    {msg.result ? (msg.result.none
+                                        ? <p className="text-[11px] font-bold text-slate-500 mt-2">Expired: nobody joined</p>
+                                        : <><p className="text-[11px] font-black text-[#c8ff00] mt-2">✅ {msg.result.finished.length} of {msg.result.finished.length + msg.result.failed.length} finished · no penalty</p>{deltaRow(msg.result.delta)}</>)
+                                        : (
+                                        <div className="flex items-center justify-between mt-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="flex -space-x-2">{players.map(v => <div key={v} className="animate-pop"><Avatar m={byId[v]} size={22} /></div>)}</div>
+                                                <span className="text-xs font-black font-mono text-amber-300">{fmtClock(leftSec(c.endsAt))}</span>
+                                            </div>
+                                            {joinControl(msg)}
+                                        </div>
+                                    )}
+                                </div>
+                                {picker === msg.id && (
+                                    <div className="absolute z-20 -top-11 left-0 flex gap-1 bg-[#141b2b] border border-slate-700 rounded-full px-2 py-1.5 shadow-2xl animate-pop">
+                                        {REACTIONS.map(e => <button key={e} onClick={(ev) => { ev.stopPropagation(); toggleReaction(msg.id, e); setPicker(null); }} className="text-lg hover:scale-125 transition">{e}</button>)}
+                                    </div>
+                                )}
+                            </div>
+                            {rx.length > 0 && (
+                                <div className="flex gap-1 -mt-1.5 relative z-10">
+                                    {rx.map(([e, users]) => <button key={e} onClick={() => toggleReaction(msg.id, e)} className={`text-[10px] px-1.5 py-0.5 rounded-full border animate-pop ${users.includes(ME) ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-[#141b2b] border-slate-700'}`}>{e} <span className="text-slate-300 font-bold">{users.length}</span></button>)}
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+                const m = byId[msg.userId];
+                const mine = msg.userId === ME;
+                const prev = messages[i - 1];
+                const grouped = prev && prev.userId === msg.userId && prev.type !== 'system';
+                const reactions = Object.entries(msg.reactions || {});
+
+                let body;
+                if (msg.type === 'text') {
+                    body = (
+                        <div className={`px-3.5 py-2.5 text-[13px] leading-snug font-medium break-words select-text ${mine ? 'bg-cyan-500 text-slate-950 rounded-2xl rounded-br-md' : 'bg-[#141b2b] text-slate-100 rounded-2xl rounded-bl-md border border-slate-800'}`}>
+                            {msg.text}
+                        </div>
+                    );
+                } else if (msg.type === 'activity') {
+                    body = (
+                        <div className="w-60 rounded-2xl overflow-hidden border border-slate-800 bg-[#0b111d]">
+                            <div className="px-3.5 py-2.5 flex items-center gap-2" style={{ background: `linear-gradient(90deg, ${m.color}33, transparent)` }}>
+                                <span className="text-xl">{msg.activity.icon}</span>
+                                <div>
+                                    <p className="text-[9px] uppercase font-black tracking-widest text-slate-400">Workout logged</p>
+                                    <p className="text-sm font-black text-white">{msg.activity.title}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 divide-x divide-slate-800 border-t border-slate-800">
+                                {msg.activity.stats.map(([v, l]) => (
+                                    <div key={l} className="py-2 text-center">
+                                        <p className="text-sm font-black text-white">{v}</p>
+                                        <p className="text-[9px] text-slate-500 uppercase font-bold">{l}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                } else if (msg.type === 'stats') {
+                    const s = msg.stats;
+                    body = (
+                        <div className="w-60 rounded-2xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/70 to-[#0b111d] p-3.5">
+                            <p className="text-[9px] uppercase font-black tracking-widest text-cyan-400">{m.name}’s day • {ordinal(s.rank)} this month</p>
+                            <div className="flex items-center gap-3 mt-2">
+                                <Ring value={s.recovery} size={58} stroke={6} color={s.recColor}>
+                                    <span className="text-sm font-black" style={{ color: s.recColor }}>{s.recovery}%</span>
+                                </Ring>
+                                <div className="grid grid-cols-1 gap-0.5 text-[11px]">
+                                    <span className="text-slate-300"><b className="text-blue-400">{s.strain}</b> strain</span>
+                                    <span className="text-slate-300"><b className="text-white">{s.steps.toLocaleString()}</b> steps</span>
+                                    <span className="text-slate-300"><b className="text-violet-300">{s.sleep}</b> sleep</span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                } else if (msg.type === 'snap') {
+                    if (mine) {
+                        body = (
+                            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl rounded-br-md border border-pink-500/40 bg-pink-500/10 text-pink-300 text-xs font-bold">
+                                <span className="w-3 h-3 rounded-sm bg-pink-500"></span> Snap {msg.snap.emoji} • Delivered
+                            </div>
+                        );
+                    } else if (msg.opened) {
+                        body = (
+                            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl rounded-bl-md border border-slate-800 bg-[#141b2b] text-slate-500 text-xs font-bold">
+                                <span className="w-3 h-3 rounded-sm border-2 border-pink-500/60"></span> Opened
+                            </div>
+                        );
+                    } else {
+                        body = (
+                            <button onClick={(e) => { e.stopPropagation(); setSnapView(msg); updateMsg(msg.id, x => ({ ...x, opened: true })); }}
+                                className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl rounded-bl-md bg-pink-500 text-white text-xs font-black shadow-lg shadow-pink-500/30 animate-pulse">
+                                <span className="w-3 h-3 rounded-sm bg-white"></span> New Snap • Tap to view
+                            </button>
+                        );
+                    }
+                } else if (msg.type === 'poll') {
+                    const total = msg.poll.options.reduce((s, o) => s + o.votes.length, 0) || 1;
+                    body = (
+                        <div className="w-64 rounded-2xl border border-slate-800 bg-[#0b111d] p-3.5">
+                            <p className="text-[9px] uppercase font-black tracking-widest text-amber-400">📊 Poll</p>
+                            <p className="text-sm font-black text-white mt-1 mb-2.5">{msg.poll.q}</p>
+                            <div className="space-y-1.5">
+                                {msg.poll.options.map((o, idx) => {
+                                    const mineVote = o.votes.includes(ME);
+                                    const pct = Math.round((o.votes.length / total) * 100);
+                                    return (
+                                        <button key={idx} onClick={(e) => { e.stopPropagation(); vote(msg.id, idx); }}
+                                            className={`relative w-full text-left rounded-xl border overflow-hidden px-3 py-2 text-xs font-bold transition ${mineVote ? 'border-amber-400/60' : 'border-slate-800 hover:border-slate-600'}`}>
+                                            <div className="absolute inset-y-0 left-0 bg-amber-400/15 transition-all duration-500" style={{ width: `${pct}%` }}></div>
+                                            <div className="relative flex justify-between items-center">
+                                                <span className="text-slate-200">{mineVote ? '✓ ' : ''}{o.label}</span>
+                                                <span className="flex items-center gap-1">
+                                                    <span className="flex -space-x-1.5">{o.votes.map(v => <Avatar key={v} m={byId[v]} size={16} />)}</span>
+                                                    <span className="text-slate-400 ml-1">{pct}%</span>
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                } else if (msg.type === 'challenge') {
+                    const ch = msg.challenge, players = joinedOf(msg);
+                    body = (
+                        <div className="w-64 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/60 to-[#0b111d] p-3.5">
+                            <div className="flex justify-between items-center">
+                                <p className="text-[9px] uppercase font-black tracking-widest text-emerald-400">🏁 Squad Challenge</p>
+                                <span className="text-[9px] font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-md px-1.5 py-0.5">±{STAKE} pts</span>
+                            </div>
+                            <p className="text-sm font-black text-white mt-1">{ch.icon} {ch.title}</p>
+                            {msg.result ? (msg.result.none
+                                ? <p className="text-[11px] text-slate-500 font-bold mt-2">Closed: nobody took it</p>
+                                : <><p className="text-[11px] font-black text-emerald-300 mt-2">✅ {msg.result.finished.length} finished · ❌ {msg.result.failed.length} didn’t</p>{Object.keys(msg.result.delta).length ? deltaRow(msg.result.delta) : <p className="text-[10px] text-slate-500 font-bold mt-1">No points moved</p>}</>)
+                                : (
+                                <>
+                                    <div className="flex items-center justify-between mt-3">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex -space-x-2">{players.map(v => <div key={v} className="animate-pop"><Avatar m={byId[v]} size={24} /></div>)}</div>
+                                            <span className="text-[10px] font-black font-mono text-slate-400">{fmtClock(leftSec(ch.endsAt))}</span>
+                                        </div>
+                                        {joinControl(msg)}
+                                    </div>
+                                    <p className="text-[9px] text-slate-500 font-medium mt-2">{players.length < 2 && ch.acceptBy ? `Needs someone to accept within ${fmtClock(leftSec(ch.acceptBy))}, or it’s gone.` : `React to join. Settles tonight: miss it −${STAKE}, finishers split it.`}</p>
+                                </>
+                            )}
+                        </div>
+                    );
+                } else if (msg.type === 'phonedown') {
+                    const pd = msg.phonedown, players = joinedOf(msg);
+                    const shown = (Math.max(0, pd.startsAt + pd.dur - now.getTime()) / pd.dur) * pd.mins * 60;
+                    body = (
+                        <div className="w-64 rounded-2xl border border-fuchsia-500/30 bg-gradient-to-br from-fuchsia-950/50 to-[#0b111d] p-3.5">
+                            <div className="flex justify-between items-center">
+                                <p className="text-[9px] uppercase font-black tracking-widest text-fuchsia-300">📵 Phone Down</p>
+                                <span className="text-[9px] font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 rounded-md px-1.5 py-0.5">±{STAKE} pts</span>
+                            </div>
+                            <p className="text-sm font-black text-white mt-1">{pd.mins}-minute group lock</p>
+                            {!msg.result && <p className="text-3xl font-black font-mono text-fuchsia-200 mt-1">{fmtClock(shown)}</p>}
+                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                {players.map(p => <span key={p} className="flex items-center gap-1 text-[10px] font-bold text-slate-300 bg-black/30 rounded-full pl-0.5 pr-2 py-0.5"><Avatar m={byId[p]} size={16} />{msg.result?.loser === p ? '❌' : '🔒'}</span>)}
+                            </div>
+                            {msg.result ? (msg.result.loser
+                                ? <><p className="text-[11px] font-black text-rose-300 mt-2">{nameOf(msg.result.loser)} picked up first</p>{deltaRow(msg.result.delta)}</>
+                                : <p className="text-[11px] font-black text-emerald-300 mt-2">Everyone held strong 💪</p>)
+                                : (
+                                <div className="flex justify-between items-center mt-3">
+                                    <span className="text-[9px] text-slate-500 font-medium">First to pick up loses</span>
+                                    {players.includes(ME)
+                                        ? <button onClick={(e) => { e.stopPropagation(); pickUp(msg.id, ME); }} className="text-[10px] font-black text-rose-300 border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 rounded-lg">I picked up 😬</button>
+                                        : joinControl(msg)}
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+
+                return (
+                    <div key={msg.id} className={`flex gap-2 animate-fadeIn ${mine ? 'justify-end' : 'justify-start'} ${grouped ? '-mt-1.5' : ''}`}>
+                        {!mine && <div className="w-7 shrink-0 self-end">{!grouped && <Avatar m={m} size={28} />}</div>}
+                        <div className={`max-w-[80%] flex flex-col ${mine ? 'items-end' : 'items-start'}`}>
+                            {!mine && !grouped && <span className="text-[10px] font-black mb-1 ml-1" style={{ color: m.color }}>{m.name} <span className="text-slate-600 font-medium">{msg.time}</span></span>}
+                            <div className="relative cursor-pointer" onClick={() => setPicker(picker === msg.id ? null : msg.id)}>
+                                {body}
+                                {picker === msg.id && (
+                                    <div className={`absolute z-20 -top-11 ${mine ? 'right-0' : 'left-0'} flex gap-1 bg-[#141b2b] border border-slate-700 rounded-full px-2 py-1.5 shadow-2xl animate-pop`}>
+                                        {REACTIONS.map(e => (
+                                            <button key={e} onClick={(ev) => { ev.stopPropagation(); toggleReaction(msg.id, e); setPicker(null); }} className="text-lg hover:scale-125 transition">{e}</button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                            {reactions.length > 0 && (
+                                <div className={`flex gap-1 -mt-1.5 relative z-10 ${mine ? 'mr-2' : 'ml-2'}`}>
+                                    {reactions.map(([e, users]) => (
+                                        <button key={e} onClick={() => toggleReaction(msg.id, e)}
+                                            className={`text-[10px] px-1.5 py-0.5 rounded-full border animate-pop ${users.includes(ME) ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-[#141b2b] border-slate-700'}`}>
+                                            {e} <span className="text-slate-300 font-bold">{users.length}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {mine && msg.seenBy && msg.id === [...messages].reverse().find(x => x.userId === ME)?.id && (
+                                <span className="text-[9px] text-slate-500 mt-1 mr-1">Seen by {msg.seenBy.map(s => byId[s].name).join(', ')}</span>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const TABS = [
+                ['dashboard', 'Daily', <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />],
+                ['leaderboard', 'Challenge', <><path d="M4 19V5M4 19h16" /><path d="M7 15l4-4 3 2 5-7" /></>],
+                ['chat', 'Group Feed', <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />],
+                ['map', 'Maps', <><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" /><path d="M8 2v16M16 6v16" /></>],
+            ];
+
+            // ---------- Layout ----------
+            return (
+                <div className="relative flex flex-col h-full bg-[#05070a] text-slate-100 select-none">
+
+
+                    {/* ================= SELF HUB ================= */}
+                    {tab === 'dashboard' && (
+                        <main className="flex-1 overflow-y-auto p-4 space-y-4 pb-28 animate-fadeIn">
+
+                            {/* Stories: Daily · Weekly ........ Profile */}
+                            <div className="flex items-center justify-between px-1 pt-1">
+                                <div className="flex gap-3 shrink-0">
+                                    {[['daily', 'Daily', '☀️', 'from-[#c8ff00] to-amber-400'], ['weekly', 'Weekly', '📅', 'from-fuchsia-500 to-cyan-400']].map(([k, l, ic, g]) => (
+                                        <button key={k} onClick={() => { setStory({ kind: k, idx: 0 }); setSeenStories(st => ({ ...st, [k]: true })); }} className="flex flex-col items-center">
+                                            <div className={`rounded-full p-[2.5px] ${seenStories[k] ? 'bg-slate-700' : `bg-gradient-to-tr ${g}`}`}>
+                                                <div className="w-12 h-12 rounded-full bg-[#0b111d] border-2 border-[#05070a] flex items-center justify-center text-xl">{ic}</div>
+                                            </div>
+                                            <span className="text-[10px] font-black text-slate-300 mt-1">{l}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                <button onClick={() => setPage('profile')} className="flex flex-col items-center gap-1.5 min-w-0 px-2" aria-label="Switch group">
+                                    <span className="text-xs font-black text-white truncate max-w-full">{groupObj.emoji} {groupObj.name}</span>
+                                    <span className="px-2.5 py-1 rounded-full bg-[#c8ff00]/10 border border-[#c8ff00]/30 text-[#c8ff00] text-[11px] font-black">{gp.challenge.toLocaleString()} pts</span>
+                                </button>
+                                <button onClick={() => setPage('profile')} className="flex flex-col items-center shrink-0" aria-label="Profile and settings">
+                                    <div className="relative">
+                                        <Avatar m={me} size={52} />
+                                        <span className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center text-[10px]">⚙️</span>
+                                    </div>
+                                    <span className="text-[10px] font-black text-slate-300 mt-1">Profile</span>
+                                </button>
+                            </div>
+
+                            {/* Clutch: today's mandatory challenge */}
+                            {(() => {
+                                const c = clutches.find(x => x.status === 'live') || clutches.find(x => x.status === 'upcoming') || clutches[clutches.length - 1];
+                                if (!c) return null;
+                                const chk = clutchCheck(c);
+                                const mid = new Date(now); mid.setHours(24, 0, 0, 0);
+                                return (
+                                    <Card label="Clutch" right={<span className="text-[10px] font-black text-[#c8ff00]">Everyone’s in</span>}>
+                                        <div className="flex justify-between items-start gap-2 -mt-1">
+                                            <div>
+                                                <p className="text-base font-black text-white">{c.icon} {c.title}</p>
+                                                <p className="text-[10px] font-bold text-slate-500 mt-0.5">Announced {c.announced} · {c.window}</p>
+                                            </div>
+                                            <span className={`shrink-0 text-[10px] font-black px-2 py-0.5 rounded-md ${c.status === 'live' ? 'bg-[#c8ff00] text-black font-mono' : 'bg-slate-800 text-slate-300'}`}>
+                                                {c.status === 'live' ? fmtClock((mid - now) / 1000) : c.status === 'done' ? 'Settled' : 'Upcoming'}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2.5 mt-3">
+                                            {squad.map(m => {
+                                                const mark = c.status === 'done' ? (c.result.finished.includes(m.id) ? '✅' : '❌') : m.id === ME && c.status === 'live' ? (chk.pass ? '✅' : '❌') : '⏳';
+                                                return <div key={m.id} className="relative"><Avatar m={byId[m.id]} size={30} /><span className="absolute -bottom-1 -right-1 text-[11px]">{mark}</span></div>;
+                                            })}
+                                        </div>
+                                        {c.status === 'live' && <p className={`text-[11px] font-bold mt-2.5 ${chk.pass ? 'text-emerald-400' : 'text-rose-400'}`}>You: {chk.note}. Others show at the end.</p>}
+                                        {c.status === 'done' && (Object.keys(c.result.delta).length ? deltaRow(c.result.delta) : <p className="text-[10px] text-slate-500 font-bold mt-2">No points moved</p>)}
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* Rival */}
+                            {rival && (() => {
+                                const r = byId[rival.id], diff = me.challengeScore - r.challengeScore;
+                                const rows = [['Recovery', me.recovery, r.recovery, '%', true], ['Avg stress', SQUAD_EXTRA[ME].stress, SQUAD_EXTRA[r.id].stress, '', false], ['VO₂ max', SQUAD_EXTRA[ME].vo2, SQUAD_EXTRA[r.id].vo2, '', true], ['Curfew streak', SQUAD_EXTRA[ME].curfewStreak, SQUAD_EXTRA[r.id].curfewStreak, '', true]];
+                                return (
+                                    <Card label="Your Rival" right={<span className="text-[10px] font-black text-rose-300">{diff >= 0 ? `You lead by ${diff}` : `${-diff} pts behind`}</span>}>
+                                        <div className="flex items-center justify-between -mt-1">
+                                            <div className="flex flex-col items-center w-20"><Avatar m={me} size={46} /><span className="text-[10px] font-black text-slate-300 mt-1">You</span></div>
+                                            <span className="text-2xl font-black text-rose-400 italic">VS</span>
+                                            <div className="flex flex-col items-center w-20"><Avatar m={r} size={46} /><span className="text-[10px] font-black text-slate-300 mt-1">{r.name}</span></div>
+                                        </div>
+                                        <div className="mt-4 space-y-1.5">
+                                            {rows.map(([l, a, b, u, higher]) => {
+                                                const meWins = higher ? a >= b : a <= b;
+                                                return (
+                                                    <div key={l} className="grid grid-cols-[1fr_auto_1fr] items-center text-xs">
+                                                        <span className={`font-black ${meWins ? 'text-emerald-300' : 'text-slate-500'}`}>{a}{u}</span>
+                                                        <span className="text-[9px] uppercase font-black text-slate-500 px-2">{l}</span>
+                                                        <span className={`text-right font-black ${!meWins ? 'text-emerald-300' : 'text-slate-500'}`}>{b}{u}</span>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                        <button onClick={() => openDuel(r.id)} className="w-full mt-4 py-2.5 rounded-xl bg-rose-500 text-white font-black text-sm">⚔️ Duel {r.name}</button>
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* Challenges: three pools */}
+                            <Card label="Challenges" right={<span className="text-[10px] font-black text-slate-500">Today {fmtPts(adj(ME))} · {sendsLeft}/{MAX_SENDS} sends left</span>}>
+                                <div className="flex bg-[#060911] border border-slate-800 rounded-xl p-1 -mt-1">
+                                    {[['duels', '⚔️ 1v1'], ['squad', '🏁 Squad'], ['bonus', '💥 Just do it']].map(([k, l]) => (
+                                        <button key={k} onClick={() => setPool(k)} className={`flex-1 py-1.5 rounded-lg text-[11px] font-black transition ${pool === k ? 'bg-[#c8ff00] text-black' : 'text-slate-400'}`}>{l}</button>
+                                    ))}
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-medium mt-2.5">
+                                    {pool === 'duels' && `You vs one squadmate. Winner +${STAKE}, loser −${STAKE}. Gone if they don’t accept.`}
+                                    {pool === 'squad' && `Sent by a player; react to join. Tonight, anyone who didn’t finish gives ${STAKE} pts to the ones who did. Gone if nobody accepts.`}
+                                    {pool === 'bonus' && 'Random extras sent by Clutch. React to opt in; finish to earn points. Nobody is penalized.'}
+                                </p>
+
+                                {pool === 'duels' && (
+                                    <div className="space-y-3 mt-3">
+                                        {duels.map(d => {
+                                            const o = byId[d.opp], v = VARIABLES.find(x => x.key === d.metric);
+                                            let a, b, aT, bT;
+                                            if (d.fixed) { a = (bio.steps / 12000) * 100; b = (d.theirs / 12000) * 100; aT = bio.steps.toLocaleString(); bT = d.theirs.toLocaleString(); }
+                                            else {
+                                                const t = d.status === 'pending' ? 0 : d.status === 'done' ? 1 : clamp((now.getTime() - d.startsAt) / d.dur, 0, 1);
+                                                a = t * d.rateMe * 100; b = t * d.rateOpp * 100; aT = `${Math.round(a)}%`; bT = `${Math.round(b)}%`;
+                                            }
+                                            const endText = d.status === 'pending' ? 'Waiting for them to accept…'
+                                                : d.status === 'done' ? (d.winner === ME ? `Won · +${STAKE} pts` : `Lost · −${STAKE} pts`)
+                                                : d.fixed ? `Ends ${d.endsLabel}` : `${fmtClock(Math.max(0, (d.startsAt + d.dur - now.getTime()) / 1000))} left`;
+                                            return (
+                                                <div key={d.id} className="rounded-2xl bg-[#060911] border border-slate-800/70 p-3">
+                                                    <span className="text-xs font-black text-white">{v.icon} {v.label} · vs {o.name}</span>
+                                                    {[[me, 'You', a, aT], [o, o.name, b, bT]].map(([m, l, pct, txt]) => (
+                                                        <div key={l} className="flex items-center gap-2 mt-2">
+                                                            <Avatar m={m} size={20} />
+                                                            <div className="flex-1"><Bar pct={pct} color={m.color} /></div>
+                                                            <span className="w-14 text-right text-[10px] font-black text-slate-300">{txt}</span>
+                                                        </div>
+                                                    ))}
+                                                    <p className={`text-[10px] font-bold mt-2 ${d.status === 'done' ? (d.winner === ME ? 'text-emerald-400' : 'text-rose-400') : 'text-slate-500'}`}>{endText}</p>
+                                                </div>
+                                            );
+                                        })}
+                                        <button onClick={() => openDuel(draft.opp)} className="w-full py-2.5 rounded-xl border border-rose-500/40 bg-rose-500/10 text-rose-200 text-xs font-black">⚔️ New duel</button>
+                                    </div>
+                                )}
+
+                                {(pool === 'squad' || pool === 'bonus') && (() => {
+                                    const list = messages.filter(m => (pool === 'squad' ? m.type === 'challenge' || m.type === 'phonedown' : m.type === 'bonus')).slice().reverse();
+                                    return (
+                                        <div className="space-y-2 mt-3">
+                                            {list.length === 0 && <p className="text-[11px] text-slate-500 font-bold text-center py-3">{pool === 'squad' ? 'No squad challenges yet today' : 'Nothing yet: one drops soon 💥'}</p>}
+                                            {list.map(m => {
+                                                const title = m.type === 'bonus' ? `${m.bonus.icon} ${m.bonus.title}` : m.type === 'phonedown' ? `📵 ${m.phonedown.mins}-min Phone Down` : `${m.challenge.icon} ${m.challenge.title}`;
+                                                const joined = joinedOf(m), mine = m.result?.delta?.[ME];
+                                                const ends = m.type === 'bonus' ? m.bonus.endsAt : m.type === 'challenge' ? m.challenge.endsAt : m.phonedown.startsAt + m.phonedown.dur;
+                                                const status = m.result
+                                                    ? (m.result.none ? 'Closed' : mine ? fmtPts(mine) : joined.includes(ME) ? (m.result.finished?.includes(ME) ? 'Finished' : 'Missed') : 'Done')
+                                                    : `${fmtClock(leftSec(ends))} left`;
+                                                return (
+                                                    <button key={m.id} onClick={() => setTab('chat')} className="w-full flex items-center justify-between gap-2 rounded-xl bg-[#060911] border border-slate-800/70 px-3 py-2.5 text-left">
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs font-black text-slate-200 truncate">{title}</p>
+                                                            <div className="flex items-center gap-1.5 mt-1">
+                                                                <div className="flex -space-x-1.5">{joined.map(p => <Avatar key={p} m={byId[p]} size={16} />)}</div>
+                                                                <span className="text-[9px] font-bold text-slate-500">{joined.length} in{joined.includes(ME) ? ' · you’re in' : ''}</span>
+                                                            </div>
+                                                        </div>
+                                                        <span className={`shrink-0 text-[11px] font-black ${mine > 0 ? 'text-emerald-400' : mine < 0 ? 'text-rose-400' : 'text-slate-400'}`}>{status}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {pool === 'squad'
+                                                ? <div className="grid grid-cols-2 gap-2"><button onClick={() => setSheet('challenge')} className="py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 text-xs font-black">🏁 New challenge</button><button onClick={() => { if (startPhoneDown() !== false) setTab('chat'); }} className="py-2.5 rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/10 text-fuchsia-200 text-xs font-black">📵 Phone Down</button></div>
+                                                : <button onClick={triggerBonus} className="w-full py-2 rounded-xl text-[10px] font-black text-slate-500 border border-dashed border-slate-700">Drop one now (demo)</button>}
+                                        </div>
+                                    );
+                                })()}
+                            </Card>
+
+                            {/* Recovery */}
+                            <Card label="Recovery" right={<span className="text-[10px] font-bold text-slate-500">35 HRV · 35 Sleep · 15 RHR</span>}>
+                                <div className="flex items-center justify-center">
+                                    <Ring value={recovery} size={176} stroke={14} color={recColor}>
+                                        <span className="text-5xl font-black tracking-tighter" style={{ color: recColor }}>{recovery}%</span>
+                                        <span className="text-[10px] uppercase font-black text-slate-400 mt-1">{recLabel}</span>
+                                    </Ring>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 mt-5">
+                                    <div className="bg-[#060911] rounded-2xl border border-slate-800/70 p-3.5">
+                                        <span className="text-[10px] text-slate-400 uppercase font-black">HRV</span>
+                                        <p className="text-2xl font-black text-white mt-1">{bio.hrv}<span className="text-xs text-slate-500 font-semibold ml-1">ms</span></p>
+                                        <p className="text-[10px] font-bold text-emerald-400 mt-0.5">▲ {fair.hrv.delta} vs 30-day median</p>
+                                        <div className="mt-2"><Source device={src} field="hrv" /></div>
+                                    </div>
+                                    <div className="bg-[#060911] rounded-2xl border border-slate-800/70 p-3.5">
+                                        <span className="text-[10px] text-slate-400 uppercase font-black">Resting HR</span>
+                                        <p className="text-2xl font-black text-white mt-1">{bio.rhr}<span className="text-xs text-slate-500 font-semibold ml-1">bpm</span></p>
+                                        <p className="text-[10px] font-bold text-emerald-400 mt-0.5">▼ {Math.abs(fair.rhr.delta)} vs 30-day median</p>
+                                        <div className="mt-2"><Source device={src} field="rhr" /></div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            {/* Garmin Body Battery (Garmin only) */}
+                            {device === 'garmin' && (() => {
+                                const b = bio.bodyBattery;
+                                const col = b.now >= 70 ? '#34d399' : b.now >= 40 ? '#fbbf24' : '#f43f5e';
+                                const w = 280, h = 56, step = w / (b.timeline.length - 1);
+                                const pts = b.timeline.map((v, i) => `${i * step},${h - (v / 100) * h}`).join(' ');
+                                return (
+                                    <Card label="Body Battery" right={<Source device="garmin" field="bodyBattery" />} className="animate-fadeIn">
+                                        <div className="flex items-center gap-5">
+                                            <Ring value={b.now} size={96} stroke={9} color={col}>
+                                                <span className="text-2xl font-black" style={{ color: col }}>{b.now}</span>
+                                                <span className="text-[8px] uppercase font-black text-slate-500">of 100</span>
+                                            </Ring>
+                                            <div className="grid grid-cols-2 gap-x-4 gap-y-2 flex-1">
+                                                <div><p className="text-[10px] uppercase font-black text-slate-500">At wake</p><p className="text-base font-black text-white">{b.wake}</p></div>
+                                                <div><p className="text-[10px] uppercase font-black text-slate-500">Charged</p><p className="text-base font-black text-emerald-400">+{b.charged}</p></div>
+                                                <div><p className="text-[10px] uppercase font-black text-slate-500">Drained</p><p className="text-base font-black text-rose-400">−{b.drained}</p></div>
+                                                <div><p className="text-[10px] uppercase font-black text-slate-500">Status</p><p className="text-base font-black" style={{ color: col }}>{b.now >= 70 ? 'Charged' : b.now >= 40 ? 'Steady' : 'Low'}</p></div>
+                                            </div>
+                                        </div>
+                                        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-14 mt-4" preserveAspectRatio="none">
+                                            <polygon points={`0,${h} ${pts} ${w},${h}`} fill={`${col}22`} />
+                                            <polyline points={pts} fill="none" stroke={col} strokeWidth="2" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+                                        </svg>
+                                        <div className="flex justify-between text-[9px] font-bold text-slate-600 mt-1"><span>12 AM</span><span>6 AM</span><span>Now</span></div>
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* Output */}
+                            <Card label="Output" right={<span className="text-[10px] font-bold text-cyan-400">Arena {arenaScore}/100 · {fair.leaderboardEligible ? 'Verified' : 'Provisional'}</span>}>
+                                <div className="flex items-center gap-5">
+                                    <Ring value={strain} max={21} size={120} stroke={11} color="#3b82f6">
+                                        <span className="text-3xl font-black text-blue-400">{strain.toFixed(1)}</span>
+                                        <span className="text-[9px] uppercase font-black text-slate-500">of 21.0</span>
+                                    </Ring>
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-black">Daily Strain</span>
+                                        <p className="text-xl font-black text-white">{strainLabel}</p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-5 space-y-4">
+                                    <div>
+                                        <div className="flex justify-between items-end mb-1.5">
+                                            <span className="text-[10px] text-slate-400 uppercase font-black">👟 Steps</span>
+                                            <span className="text-sm font-black text-white">{bio.steps.toLocaleString()} <span className="text-slate-500 font-semibold text-xs">/ {bio.stepGoal.toLocaleString()}</span></span>
+                                        </div>
+                                        <Bar pct={(bio.steps / bio.stepGoal) * 100} color="#22d3ee" />
+                                        <div className="mt-1.5 flex items-center justify-between gap-2"><Source device={src} field="steps" /><span className="text-[9px] font-bold text-cyan-400">TAR {fair.steps.targetAchievementRatio}x · {fair.steps.cappedPoints}/120 pts</span></div>
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between items-end mb-1.5">
+                                            <span className="text-[10px] text-slate-400 uppercase font-black">🔥 Active Energy</span>
+                                            <span className="text-sm font-black text-white">{bio.kcal} <span className="text-slate-500 font-semibold text-xs">/ {bio.kcalGoal} kcal</span></span>
+                                        </div>
+                                        <Bar pct={(bio.kcal / bio.kcalGoal) * 100} color="#f97316" />
+                                        <div className="mt-1.5"><Source device={src} field="energy" /></div>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            {/* Sleep */}
+                            <Card label="Sleep" right={<Source device={src} field="sleep" />}>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <span className="text-[10px] text-slate-400 uppercase font-black">Total Sleep Time</span>
+                                        <p className="text-3xl font-black text-violet-300 mt-1">{fmtHM(sleepMin)}</p>
+                                        <p className="text-[10px] font-bold text-slate-500 mt-0.5">{fmtHM(inBedMin)} in bed • optimal window 7h 30m–8h 30m</p>
+                                    </div>
+                                    <Ring value={sleepEff} size={84} stroke={8} color="#a78bfa">
+                                        <span className="text-lg font-black text-violet-300">{sleepEff}%</span>
+                                        <span className="text-[8px] uppercase font-black text-slate-500">Efficiency</span>
+                                    </Ring>
+                                </div>
+
+                                <div className="flex h-3 rounded-full overflow-hidden mt-5 gap-0.5">
+                                    {[['deep', '#6366f1'], ['rem', '#a78bfa'], ['light', '#38bdf8'], ['awake', '#475569']].map(([k, c]) => (
+                                        <div key={k} style={{ width: `${(bio.sleep[k] / inBedMin) * 100}%`, background: c }}></div>
+                                    ))}
+                                </div>
+                                <div className="flex justify-between mt-2">
+                                    {[['Deep', 'deep', '#6366f1'], ['REM', 'rem', '#a78bfa'], ['Light', 'light', '#38bdf8'], ['Awake', 'awake', '#475569']].map(([l, k, c]) => (
+                                        <span key={k} className="flex items-center gap-1 text-[10px] font-bold text-slate-400"><span className="w-1.5 h-1.5 rounded-full" style={{ background: c }}></span>{l} <b className="text-slate-200">{fmtHM(bio.sleep[k])}</b></span>
+                                    ))}
+                                </div>
+                                {extras.vitals && (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-3 mt-4">
+                                            <div className="bg-[#060911] rounded-2xl border border-slate-800/70 p-3">
+                                                <span className="text-[10px] text-slate-400 uppercase font-black">Blood oxygen</span>
+                                                <p className="text-xl font-black text-white mt-0.5">{bio.spo2.avg}%</p>
+                                                <p className="text-[10px] font-bold text-slate-500">Low {bio.spo2.min}% overnight</p>
+                                            </div>
+                                            <div className="bg-[#060911] rounded-2xl border border-slate-800/70 p-3">
+                                                <span className="text-[10px] text-slate-400 uppercase font-black">Skin temp</span>
+                                                <p className={`text-xl font-black mt-0.5 ${bio.skinTemp.delta >= 0.5 ? 'text-amber-300' : 'text-white'}`}>{bio.skinTemp.delta > 0 ? '+' : ''}{bio.skinTemp.delta.toFixed(1)}°C</p>
+                                                <p className="text-[10px] font-bold text-slate-500">vs your baseline</p>
+                                            </div>
+                                        </div>
+                                        {bio.skinTemp.delta >= 0.5 && (
+                                            <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-[11px] font-bold text-amber-200">
+                                                🤒 Skin temp is up {bio.skinTemp.delta.toFixed(1)}°C. You might be getting sick, so take it easy today.
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </Card>
+
+                            {/* Stress */}
+                            {extras.stress && (() => {
+                                const st = bio.stress;
+                                const lvl = (v) => (v < 26 ? '#34d399' : v < 51 ? '#fbbf24' : v < 76 ? '#fb923c' : '#f43f5e');
+                                return (
+                                    <Card label="Stress">
+                                        <div className="flex items-end justify-between">
+                                            <div>
+                                                <span className="text-[10px] text-slate-400 uppercase font-black">Average today</span>
+                                                <p className="text-3xl font-black mt-1" style={{ color: lvl(st.avg) }}>{st.avg}<span className="text-xs text-slate-500 font-semibold ml-1">/100</span></p>
+                                                <p className="text-[10px] font-bold text-slate-500">{st.avg < 26 ? 'Low' : st.avg < 51 ? 'Medium' : 'High'} stress</p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-end gap-1 h-16 mt-4">
+                                            {st.timeline.map((v, i) => <div key={i} className="flex-1 rounded-t-md" style={{ height: `${Math.max(8, v)}%`, background: lvl(v) }}></div>)}
+                                        </div>
+                                        <div className="flex justify-between text-[9px] font-bold text-slate-600 mt-1"><span>6 AM</span><span>12 PM</span><span>Now</span></div>
+                                        <div className="mt-4 flex items-center justify-between rounded-2xl bg-[#060911] border border-slate-800/70 px-3 py-2.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <Avatar m={chillest} size={28} />
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black text-emerald-400">🧘 Most chill in squad</p>
+                                                    <p className="text-xs font-black text-slate-200">{nameOf(chillest.id)} · avg {chillest.stress}</p>
+                                                </div>
+                                            </div>
+                                            <span className="text-lg">🏅</span>
+                                        </div>
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* Screen Time */}
+                            {extras.screen && (() => {
+                                const s = bio.screen;
+                                const over = s.total > s.limit;
+                                const col = over ? '#f43f5e' : s.total > s.limit * 0.8 ? '#fbbf24' : '#34d399';
+                                const diff = s.total - s.yesterday;
+                                return (
+                                    <Card label="Screen Time" right={<Source device={src} field="screen" />}>
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <span className="text-[10px] text-slate-400 uppercase font-black">Today</span>
+                                                <p className="text-3xl font-black text-white mt-1">{fmtHM(s.total)}</p>
+                                                <p className={`text-[10px] font-bold mt-0.5 ${diff <= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {diff <= 0 ? '▼' : '▲'} {fmtHM(Math.abs(diff))} vs yesterday
+                                                </p>
+                                            </div>
+                                            <Ring value={s.total} max={s.limit} size={84} stroke={8} color={col}>
+                                                <span className="text-lg font-black" style={{ color: col }}>{Math.round((s.total / s.limit) * 100)}%</span>
+                                                <span className="text-[8px] uppercase font-black text-slate-500">of {s.limit / 60}h limit</span>
+                                            </Ring>
+                                        </div>
+                                        <div className="mt-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-3.5">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="text-[9px] uppercase font-black tracking-widest text-indigo-300">🌙 Screen curfew · {settings.curfew}</p>
+                                                    <p className="text-sm font-black text-white mt-0.5">{SQUAD_EXTRA[ME].curfewStreak}-night streak 🔥</p>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-500">Last night</span>
+                                            </div>
+                                            <div className="flex gap-2 mt-3">
+                                                {squad.map(m => (
+                                                    <div key={m.id} className="flex flex-col items-center gap-1 flex-1">
+                                                        <div className="relative"><Avatar m={m} size={30} /><span className="absolute -bottom-1 -right-1 text-[11px]">{SQUAD_EXTRA[m.id].curfewLast ? '✅' : '❌'}</span></div>
+                                                        <span className="text-[9px] font-bold text-slate-400">{nameOf(m.id)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <button onClick={() => { if (startPhoneDown() !== false) setTab('chat'); }} className="w-full mt-3 py-3 rounded-2xl bg-fuchsia-500/15 border border-fuchsia-500/40 text-fuchsia-200 font-black text-sm">📵 Start a {settings.phoneDownMins}-min Phone Down</button>
+                                        <p className="text-[9px] text-slate-500 font-medium mt-2 text-center">🔒 Only you see your minutes. The squad only sees pass / fail.</p>
+                                    </Card>
+                                );
+                            })()}
+
+                            {/* VO2 max */}
+                            {extras.vo2 && (() => {
+                                const v = bio.vo2, w = 200, h = 40, mn = Math.min(...v.trend), mx = Math.max(...v.trend);
+                                const pts = v.trend.map((x, i) => `${(i * w) / (v.trend.length - 1)},${h - ((x - mn) / (mx - mn || 1)) * (h - 6) - 3}`).join(' ');
+                                const order = [...squad].sort((a, b) => SQUAD_EXTRA[b.id].vo2 - SQUAD_EXTRA[a.id].vo2);
+                                const top = SQUAD_EXTRA[order[0].id].vo2;
+                                return (
+                                    <Card label="VO₂ Max">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-3xl font-black text-sky-300">{v.value}<span className="text-xs text-slate-500 font-semibold ml-1">ml/kg/min</span></p>
+                                                <p className="text-[10px] font-bold text-emerald-400 mt-0.5">▲ {(v.value - v.trend[0]).toFixed(1)} in 6 weeks</p>
+                                            </div>
+                                            <svg viewBox={`0 0 ${w} ${h}`} className="w-28 h-10"><polyline points={pts} fill="none" stroke="#7dd3fc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                        </div>
+                                        <div className="space-y-2 mt-4">
+                                            {order.map((m, i) => (
+                                                <div key={m.id} className="flex items-center gap-2.5">
+                                                    <span className={`w-4 text-[10px] font-black ${i === 0 ? 'text-amber-400' : 'text-slate-500'}`}>{i + 1}</span>
+                                                    <Avatar m={m} size={22} />
+                                                    <div className="flex-1"><Bar pct={(SQUAD_EXTRA[m.id].vo2 / top) * 100} color={m.color} /></div>
+                                                    <span className="w-9 text-right text-[11px] font-black text-slate-200">{SQUAD_EXTRA[m.id].vo2}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Card>
+                                );
+                            })()}
+                        </main>
+                    )}
+
+                    {/* ================= MONTH CHALLENGE ================= */}
+                    {tab === 'leaderboard' && (
+                        <main className="flex-1 min-h-0 flex flex-col overflow-y-auto pb-24 animate-fadeIn">
+                            <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-2">
+                                <div>
+                                    <p className="text-[10px] uppercase font-black tracking-[0.2em] text-slate-500">Day {CHALLENGE_DAY} of {MONTH_DAYS}</p>
+                                    <p className="text-sm font-black text-white mt-0.5">{me.challengeScore.toLocaleString()}<span className="text-slate-500 font-bold"> / {(CHALLENGE_DAY * DAILY_MAX).toLocaleString()} possible</span></p>
+                                </div>
+                                <div className="flex rounded-xl bg-[#0b111d] p-1 border border-slate-800">
+                                    {[['12h', '12H'], ['full', 'FULL']].map(([key, label]) => <button key={key} onClick={() => setChallengeZoom(key)} className={`min-w-12 px-2.5 py-1.5 rounded-lg text-[10px] font-black transition ${challengeZoom === key ? 'bg-[#c8ff00] text-black shadow-[0_0_16px_rgba(200,255,0,0.25)]' : 'text-slate-500 hover:text-slate-300'}`}>{label}</button>)}
+                                </div>
+                            </div>
+                            {challengeZoom === 'full' && <div className="flex justify-end px-5 pb-2"><div className="flex rounded-xl bg-[#0b111d] p-1 border border-slate-800">{Object.entries(CHALLENGE_RANGES).map(([key, range]) => <button key={key} onClick={() => setChallengeRange(key)} className={`min-w-10 px-2.5 py-1.5 rounded-lg text-[10px] font-black transition ${challengeRange === key ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>{range.label}</button>)}</div></div>}
+                            <div className="flex-1 min-h-0 px-2 pb-1">
+                                <MonthlyChallengeChart players={activeChartSquad} pointLabel={chartPointLabel} labelForIndex={chartLabelForIndex} maxPossible={challengeZoom === '12h' ? null : chartSquad[0].chartEntries.length * (challengeRange === '3m' ? DAILY_MAX * 7 : DAILY_MAX)} />
+                            </div>
+                        </main>
+                    )}
+
+                    {/* ================= GROUP FEED ================= */}
+                    {tab === 'chat' && (
+                        <main className="flex-1 flex flex-col overflow-hidden pb-[96px] animate-fadeIn" onClick={() => setPicker(null)}>
+
+                            {/* Story bar */}
+                            <div className="flex gap-4 px-4 pt-3 pb-3 border-b border-slate-800/60 overflow-x-auto no-scrollbar">
+                                {squad.map(m => {
+                                    const c = m.recovery >= 67 ? '#34d399' : m.recovery >= 34 ? '#fbbf24' : '#f43f5e';
+                                    return (
+                                        <button key={m.id} onClick={(e) => { e.stopPropagation(); setProfile(m); }} className="flex flex-col items-center shrink-0">
+                                            <div className="rounded-full p-[2.5px]" style={{ background: `conic-gradient(${c} ${m.recovery}%, #1e293b 0)` }}>
+                                                <div className="rounded-full p-[2px] bg-[#05070a]"><Avatar m={m} size={46} /></div>
+                                            </div>
+                                            <span className="text-[10px] font-bold text-slate-300 mt-1">{m.id === ME ? 'You' : m.name}</span>
+                                            <span className="text-[9px] font-black" style={{ color: c }}>{m.recovery}%</span>
+                                        </button>
+                                    );
+                                })}
+                                <button onClick={(e) => { e.stopPropagation(); setPage('profile'); }} className="ml-auto flex flex-col items-center shrink-0" aria-label="Settings">
+                                    <div className="w-[54px] h-[54px] rounded-full border-2 border-dashed border-slate-700 flex items-center justify-center text-xl">⚙️</div>
+                                    <span className="text-[10px] font-bold text-slate-400 mt-1">Settings</span>
+                                </button>
+                            </div>
+
+                            {/* Messages */}
+                            <div className="flex-1 overflow-y-auto px-3 py-4 space-y-3">
+                                <div className="flex justify-center"><span className="text-[9px] font-black uppercase tracking-widest text-slate-600">Today</span></div>
+                                {messages.map(renderMessage)}
+                                {typing && (
+                                    <div className="flex gap-2 items-end animate-fadeIn">
+                                        <Avatar m={byId[typing]} size={28} />
+                                        <div className="bg-[#141b2b] border border-slate-800 rounded-2xl rounded-bl-md px-3.5 py-3 flex gap-1">
+                                            <span className="dot w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                            <span className="dot w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                            <span className="dot w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                        </div>
+                                    </div>
+                                )}
+                                <div ref={chatEndRef}></div>
+                            </div>
+
+                            {/* Quick chips */}
+                            <div className="flex gap-2 px-3 pb-2 overflow-x-auto no-scrollbar">
+                                {QUICK.map(q => (
+                                    <button key={q} onClick={() => sendText(q)} className="shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300 transition">{q}</button>
+                                ))}
+                            </div>
+
+                            {/* Composer */}
+                            <form onSubmit={(e) => { e.preventDefault(); sendText(input); }} className="flex items-center gap-2 px-3 pb-2">
+                                <button type="button" onClick={(e) => { e.stopPropagation(); setSheet('menu'); }} aria-label="More actions"
+                                    className="w-11 h-11 shrink-0 rounded-2xl bg-slate-900 border border-slate-800 text-cyan-400 text-xl font-black hover:border-cyan-500/50 transition">+</button>
+                                <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Message the squad…"
+                                    className="flex-1 min-w-0 bg-[#0b111d] border border-slate-800 rounded-2xl px-4 py-3 text-[13px] text-slate-200 focus:outline-none focus:border-cyan-400 transition select-text" />
+                                <button type="submit" disabled={!input.trim()} aria-label="Send"
+                                    className="w-11 h-11 shrink-0 rounded-2xl bg-cyan-400 disabled:bg-slate-800 disabled:text-slate-600 text-black font-black flex items-center justify-center transition">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                </button>
+                            </form>
+                        </main>
+                    )}
+
+                    {/* ================= MAPS ================= */}
+                    {tab === 'map' && (() => {
+                        const run = map.run, runRoute = run && routeOf(map, run.routeId);
+                        const counts = squad.map(m => ({ ...byId[m.id], count: hexCount(map.hexes, m.id) })).sort((a, b) => b.count - a.count);
+                        const totalHex = HEX_GRID.length;
+                        const myCount = hexCount(map.hexes, ME);
+                        const highlight = run ? run.routeId : mapMode === 'routes' ? selRoute : null;
+                        const myPos = posOf(map, ME);
+                        const colors = Object.fromEntries(squad.map(m => [m.id, m.color]));
+                        const pins = squad.map(m => {
+                            const [x, y] = posOf(map, m.id);
+                            const hidden = m.id === ME && !shareLocation;
+                            return { key: String(m.id), x, y, color: m.color, img: avatarUrl(m), moving: isMoving(map, m.id), me: m.id === ME, hidden, label: m.id === ME ? (hidden ? 'Hidden' : 'You') : null };
+                        });
+                        let ghostGap = null, king = null;
+                        if (run) {
+                            king = runRoute.record.userId;
+                            const gT = Math.min(1, (run.t * run.target) / runRoute.record.time);
+                            const [gx, gy] = pointAt(runRoute.pts, gT);
+                            pins.push({ key: 'ghost', x: gx, y: gy, color: byId[king].color, img: avatarUrl(byId[king]), ghost: true });
+                            ghostGap = Math.round((run.t - gT) * runRoute.km * 1000);
+                        }
+                        const glass = 'bg-black/60 backdrop-blur-md border border-white/10';
+                        return (
+                            <main className="flex-1 flex flex-col overflow-hidden pb-[88px] animate-fadeIn">
+                                {/* Map */}
+                                <div className={`relative ${run ? 'h-[72%]' : 'h-[58%]'} min-h-[300px] shrink-0 overflow-hidden transition-[height] duration-500`}>
+                                    <SquadMap center={center} hexes={map.hexes} routes={map.routes} run={run} trails={map.trails} rally={map.rally}
+                                        colors={colors} pins={pins} mode={mapMode} highlight={highlight}
+                                        follow={run && follow ? myPos : null} focus={focus}
+                                        onMapClick={rallyArm ? placeRally : null} />
+
+                                    <div className={`absolute top-3 left-3 right-16 z-[1000] flex rounded-2xl p-1 ${glass}`}>
+                                        {[['live', 'Live'], ['routes', 'Routes'], ['territory', 'Territory']].map(([k, l]) => (
+                                            <button key={k} onClick={() => setMapMode(k)} className={`flex-1 py-1.5 rounded-xl text-[11px] font-black transition ${mapMode === k ? 'bg-[#c8ff00] text-black' : 'text-slate-300'}`}>{l}</button>
+                                        ))}
+                                    </div>
+                                    <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+                                        <button onClick={useMyLocation} title="Use my location" aria-label="Use my location" className={`w-10 h-10 rounded-xl text-base ${glass}`}>📍</button>
+                                        <button onClick={() => setFocus({ x: myPos[0], y: myPos[1], key: Date.now() })} title="Find me" aria-label="Find me" className={`w-10 h-10 rounded-xl text-base ${glass}`}>🎯</button>
+                                        <button onClick={() => setFocus({ x: MAP_W / 2, y: MAP_H / 2, zoom: 14, key: Date.now() })} title="Show whole area" aria-label="Show whole area" className={`w-10 h-10 rounded-xl text-base ${glass}`}>🗺️</button>
+                                    </div>
+                                    {mapMode === 'territory' && !run && (
+                                        <div className={`absolute bottom-3 left-3 right-3 z-[1000] rounded-2xl p-2.5 ${glass}`}>
+                                            <div className="flex h-2.5 rounded-full overflow-hidden gap-0.5 bg-slate-800">
+                                                {counts.filter(c => c.count).map(c => <div key={c.id} style={{ width: `${(c.count / totalHex) * 100}%`, background: c.color, transition: 'width .5s' }}></div>)}
+                                            </div>
+                                            <p className="text-[10px] font-bold text-slate-300 mt-1.5">You hold <b className="text-[#c8ff00]">{myCount}</b> of {totalHex} hexes · {Math.round((myCount / totalHex) * 100)}% of the map</p>
+                                        </div>
+                                    )}
+                                    {run && (
+                                        <div className="absolute bottom-3 left-3 right-3 z-[1000] rounded-2xl bg-black/75 backdrop-blur-md border border-[#c8ff00]/40 p-3 animate-fadeIn">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-[9px] uppercase font-black tracking-[0.2em] text-[#c8ff00] flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>Live · {runRoute.name}</span>
+                                                <button onClick={() => setFollow(f => !f)} className={`text-[9px] font-black px-2 py-0.5 rounded-md ${follow ? 'bg-[#c8ff00]/20 text-[#c8ff00]' : 'text-slate-400'}`}>{follow ? 'Following' : 'Follow me'}</button>
+                                            </div>
+                                            <div className="grid grid-cols-4 gap-1 mt-2 text-center">
+                                                {[['Time', fmtClock(run.t * run.target)], ['Km', (run.t * runRoute.km).toFixed(2)], ['Pace', fmtPace(run.target / runRoute.km).replace('/km', '')], ['Hexes', `+${run.captured || 0}`]].map(([l, v]) => (
+                                                    <div key={l}><p className="text-lg font-black font-mono text-white leading-tight">{v}</p><p className="text-[8px] uppercase font-black text-slate-500">{l}</p></div>
+                                                ))}
+                                            </div>
+                                            <div className="flex items-center justify-between mt-2 text-[10px] font-black">
+                                                <span className="flex items-center gap-1.5 text-slate-300"><Avatar m={byId[king]} size={16} />👻 {king === ME ? 'Your record' : `${byId[king].name}’s record`}</span>
+                                                <span className={ghostGap >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{ghostGap >= 0 ? `${ghostGap} m ahead` : `${-ghostGap} m behind`}</span>
+                                            </div>
+                                            <div className="mt-2"><Bar pct={run.t * 100} color="#c8ff00" /></div>
+                                        </div>
+                                    )}
+                                    {rallyArm && <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] px-3 py-2 rounded-full bg-[#c8ff00] text-black text-[11px] font-black shadow-xl animate-pop">Tap the map to drop your rally point</div>}
+                                    {geoNote && <div className={`absolute top-16 left-3 z-[1000] px-3 py-1.5 rounded-full text-[10px] font-bold text-slate-200 ${glass}`}>{geoNote}</div>}
+                                </div>
+
+                                {/* Panel */}
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                    {mapMode === 'live' && (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <button onClick={() => setRallyArm(a => !a)} className={`py-2.5 rounded-xl text-xs font-black border transition ${rallyArm ? 'bg-[#c8ff00] text-black border-[#c8ff00]' : 'bg-[#0e1422] border-slate-800 text-slate-200'}`}>📍 {rallyArm ? 'Tap the map…' : 'Drop rally point'}</button>
+                                                <button onClick={() => setShareLocation(v => !v)} className={`py-2.5 rounded-xl text-xs font-black border transition ${shareLocation ? 'bg-[#0e1422] border-slate-800 text-slate-200' : 'bg-slate-800 border-slate-600 text-slate-300'}`}>{shareLocation ? '👁 Sharing location' : '🙈 Location hidden'}</button>
+                                            </div>
+                                            {squad.map(m => {
+                                                const moving = isMoving(map, m.id);
+                                                const rName = m.id === ME ? runRoute?.name : map.live[m.id].route && routeOf(map, map.live[m.id].route).name;
+                                                const [x, y] = posOf(map, m.id);
+                                                const d = Math.hypot(x - myPos[0], y - myPos[1]) * KM_PER_PX;
+                                                return (
+                                                    <button key={m.id} onClick={() => setFocus({ x, y, key: Date.now() })} className="w-full flex items-center justify-between rounded-2xl px-3 py-2.5 bg-[#0e1422] border border-slate-800/70 text-left">
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar m={m} size={34} />
+                                                            <div>
+                                                                <p className="text-xs font-black text-slate-200">{nameOf(m.id)}</p>
+                                                                <p className="text-[10px] font-bold" style={{ color: moving ? m.color : '#64748b' }}>{m.id === ME && !shareLocation ? 'Hidden from squad' : moving ? `Running · ${rName}` : 'Resting'}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-[11px] font-black" style={{ color: m.color }}>{hexCount(map.hexes, m.id)} hexes</p>
+                                                            <p className="text-[9px] font-bold text-slate-500">{m.id === ME ? 'You' : `${d.toFixed(1)} km away`}</p>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </>
+                                    )}
+
+                                    {mapMode === 'routes' && run && (
+                                        <section className="rounded-[22px] border border-[#c8ff00]/30 bg-[#0e1422] p-4">
+                                            <p className="text-sm font-black text-white">Running {runRoute.name}</p>
+                                            <p className="text-[11px] text-slate-400 font-medium mt-1">Every hex you pass turns your colour. Beat the 👻 ghost to take the crown.</p>
+                                            <button onClick={stopRun} className="w-full mt-3 py-3 rounded-xl bg-rose-500/15 border border-rose-500/40 text-rose-300 font-black text-sm">End run</button>
+                                        </section>
+                                    )}
+
+                                    {mapMode === 'routes' && !run && map.routes.map(r => {
+                                        const sel = r.id === selRoute, kg = byId[r.record.userId];
+                                        return (
+                                            <div key={r.id} onClick={() => setSelRoute(r.id)} className={`cursor-pointer rounded-[22px] p-4 border transition ${sel ? 'bg-[#c8ff00]/5 border-[#c8ff00]/40' : 'bg-[#0e1422] border-slate-800/80'}`}>
+                                                <div className="flex justify-between items-start gap-3">
+                                                    <div>
+                                                        <p className="text-sm font-black text-white">{r.name}</p>
+                                                        <p className="text-[10px] font-bold text-slate-500 mt-0.5">{r.km} km · {r.elev} m climb</p>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-right">
+                                                        <div><p className="text-[9px] uppercase font-black text-amber-400">👑 King</p><p className="text-[11px] font-black text-slate-200">{nameOf(kg.id)} · {fmtClock(r.record.time)}</p></div>
+                                                        <Avatar m={kg} size={28} />
+                                                    </div>
+                                                </div>
+                                                {sel && (
+                                                    <div className="mt-3 pt-3 border-t border-slate-800/80 flex items-center justify-between animate-fadeIn">
+                                                        <span className="text-[10px] font-bold text-slate-400">Your best <b className="text-[#c8ff00] ml-1">{fmtClock(r.best)}</b></span>
+                                                        <button onClick={(e) => { e.stopPropagation(); startRun(r.id); }} className="px-4 py-2 rounded-xl bg-[#c8ff00] text-black text-xs font-black">▶ Race the ghost</button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+
+                                    {mapMode === 'territory' && (
+                                        <section className="bg-[#0e1422] border border-slate-800/80 rounded-[22px] p-4">
+                                            <p className="text-sm font-black text-white">Territory</p>
+                                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Run through hexes to paint them your colour. Anyone can steal them back.</p>
+                                            <div className="space-y-2 mt-3">
+                                                {counts.map((c, i) => (
+                                                    <div key={c.id} className="flex items-center gap-2.5">
+                                                        <span className={`w-4 text-[10px] font-black ${i === 0 ? 'text-amber-400' : 'text-slate-500'}`}>{i + 1}</span>
+                                                        <Avatar m={c} size={26} />
+                                                        <div className="flex-1"><Bar pct={(c.count / Math.max(1, counts[0].count)) * 100} color={c.color} /></div>
+                                                        <span className="w-14 text-right text-[11px] font-black" style={{ color: c.color }}>{c.count} hex</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    )}
+                                </div>
+                            </main>
+                        );
+                    })()}
+
+                    {/* ---------- Bottom sheets & overlays ---------- */}
+                    {(sheet || profile) && (
+                        <div className="absolute inset-0 z-40 bg-black/60 backdrop-blur-sm flex items-end" onClick={() => { setSheet(null); setProfile(null); }}>
+                            <div className="w-full bg-[#0b111d] border-t border-slate-800 rounded-t-[28px] p-5 pb-8 animate-slideUp" onClick={(e) => e.stopPropagation()}>
+                                <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4"></div>
+
+                                {sheet === 'menu' && (
+                                    <div className="grid grid-cols-2 gap-3">
+                                        {[
+                                            ['📊', 'Share my stats', 'Recovery, strain & steps card', shareStats],
+                                            ['📸', 'Send a snap', 'View once, then it’s gone', () => setSheet('snap')],
+                                            ['🗳️', 'Start a poll', 'Let the squad decide', () => setSheet('poll')],
+                                            ['🏁', 'Squad challenge', 'React to join · ±2 pts tonight', () => setSheet('challenge')],
+                                            ['⚔️', '1v1 duel', 'Winner +2, loser −2', () => setSheet('duel')],
+                                            ['📵', 'Phone Down', 'First to pick up: −2', startPhoneDown],
+                                        ].map(([i, t, d, fn]) => (
+                                            <button key={t} onClick={fn} className="text-left p-4 rounded-2xl bg-[#0e1422] border border-slate-800 hover:border-cyan-500/40 transition">
+                                                <span className="text-2xl">{i}</span>
+                                                <p className="text-sm font-black text-white mt-2">{t}</p>
+                                                <p className="text-[10px] text-slate-500 font-medium">{d}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {sheet === 'snap' && (
+                                    <>
+                                        <p className="text-sm font-black text-white mb-3">Pick your snap</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {SNAP_PRESETS.map(p => (
+                                                <button key={p.caption} onClick={() => sendSnap(p)} className="h-28 rounded-2xl flex flex-col items-center justify-center text-white font-black text-xs" style={{ background: p.bg }}>
+                                                    <span className="text-4xl mb-1">{p.emoji}</span>{p.caption}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+
+                                {sheet === 'poll' && (
+                                    <form onSubmit={(e) => { e.preventDefault(); sendPoll(); }} className="space-y-2.5">
+                                        <p className="text-sm font-black text-white">New poll</p>
+                                        <input autoFocus value={pollDraft.q} onChange={(e) => setPollDraft({ ...pollDraft, q: e.target.value })} placeholder="Ask the squad…"
+                                            className="w-full bg-[#060911] border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-amber-400 select-text" />
+                                        {['a', 'b'].map(k => (
+                                            <input key={k} value={pollDraft[k]} onChange={(e) => setPollDraft({ ...pollDraft, [k]: e.target.value })}
+                                                className="w-full bg-[#060911] border border-slate-800 rounded-xl px-3.5 py-2 text-xs focus:outline-none focus:border-amber-400 select-text" />
+                                        ))}
+                                        <button type="submit" disabled={!pollDraft.q.trim()} className="w-full bg-amber-400 disabled:opacity-40 text-black font-black py-3 rounded-xl text-sm">Post poll</button>
+                                    </form>
+                                )}
+
+                                {sheet === 'challenge' && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <p className="text-sm font-black text-white">Challenge the squad <span className="text-[10px] text-slate-500 font-bold ml-1">{sendsLeft}/{MAX_SENDS} left today</span></p>
+                                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Anyone who reacts is in. At the end of the day, each player who didn’t finish loses {STAKE} pts and the finishers split them. Nobody else is affected.</p>
+                                        </div>
+                                        {metricPicker}
+                                        <button onClick={sendChallenge} disabled={!sendsLeft} className="w-full disabled:opacity-40 bg-emerald-400 text-black font-black py-3 rounded-xl text-sm">Send challenge</button>
+                                    </div>
+                                )}
+
+                                {sheet === 'duel' && (
+                                    <div className="space-y-3">
+                                        <div>
+                                            <p className="text-sm font-black text-white">1v1 duel <span className="text-[10px] text-slate-500 font-bold ml-1">{sendsLeft}/{MAX_SENDS} left today</span></p>
+                                            <p className="text-[10px] text-slate-500 font-medium mt-0.5">Winner +{STAKE}, loser −{STAKE} on today’s score. Nobody else is affected.</p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            {others().map(o => (
+                                                <button key={o.id} onClick={() => setDraft(d => ({ ...d, opp: o.id }))} className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl border transition ${draft.opp === o.id ? 'border-rose-400/60 bg-rose-500/10' : 'border-slate-800 bg-[#0e1422]'}`}>
+                                                    <Avatar m={byId[o.id]} size={32} />
+                                                    <span className="text-[10px] font-black text-slate-300">{o.name}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {metricPicker}
+                                        <button onClick={startDuel} disabled={!sendsLeft} className="w-full disabled:opacity-40 bg-rose-500 text-white font-black py-3 rounded-xl text-sm">⚔️ Send duel</button>
+                                    </div>
+                                )}
+
+                                {profile && !sheet && (() => {
+                                    const m = byId[profile.id];
+                                    const c = m.recovery >= 67 ? '#34d399' : m.recovery >= 34 ? '#fbbf24' : '#f43f5e';
+                                    const r = ranked.findIndex(x => x.id === m.id) + 1;
+                                    return (
+                                        <div>
+                                            <div className="flex items-center gap-4">
+                                                <Avatar m={m} size={60} />
+                                                <div>
+                                                    <p className="text-lg font-black text-white">{m.id === ME ? 'You' : m.name}</p>
+                                                    <p className="text-[11px] text-slate-400 font-medium">{ordinal(r)} this month · today {fmtPts(adj(m.id))}</p>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2 mt-4">
+                                                {[['Recovery', `${m.recovery}%`, c], ['Challenge Score', m.challengeScore.toLocaleString(), '#22d3ee'], ['Today', `${m.dailyScores[CHALLENGE_DAY - 1]}/100`, '#a78bfa']].map(([l, v, col]) => (
+                                                    <div key={l} className="bg-[#060911] border border-slate-800 rounded-xl p-2.5 text-center">
+                                                        <p className="text-[9px] uppercase font-black text-slate-500">{l}</p>
+                                                        <p className="text-base font-black" style={{ color: col }}>{v}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {m.id !== ME && (
+                                                <div className="grid grid-cols-3 gap-2 mt-4">
+                                                    <button onClick={() => openDuel(m.id)} className="py-3 rounded-xl bg-rose-500 text-white font-black text-sm">⚔️ Duel</button>
+                                                    <button onClick={() => hype(m)} className="py-3 rounded-xl bg-orange-500 text-black font-black text-sm">🔥 Hype</button>
+                                                    <button onClick={() => nudge(m)} className="py-3 rounded-xl bg-slate-800 text-slate-200 font-black text-sm">👉 Nudge</button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ---------- Profile & Settings ---------- */}
+                    {page === 'profile' && (
+                        <div className="absolute inset-0 z-40 bg-[#05070a] flex flex-col animate-fadeIn">
+                            <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-800/60">
+                                <button onClick={() => setPage(null)} className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 text-xl leading-none" aria-label="Back">‹</button>
+                                <h2 className="text-sm font-black text-white">Profile & Settings</h2>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-10">
+                                {/* Group selector (first): everything below follows the selected group */}
+                                <section>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 px-1">Your groups</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {GROUPS.map(g => (
+                                            <button key={g.id} onClick={() => setGroup(g.id)} className={`relative flex flex-col items-start gap-1.5 rounded-2xl p-3 border text-left transition ${group === g.id ? 'bg-[#c8ff00]/10 border-[#c8ff00]/60' : 'bg-[#0e1422] border-slate-800'}`}>
+                                                <span className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-lg">{g.emoji}</span>
+                                                <p className="text-[13px] font-black text-white leading-tight">{g.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-500">{g.size} members</p>
+                                                {group === g.id && <span className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-[#c8ff00] text-black text-[10px] font-black flex items-center justify-center">✓</span>}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* Me */}
+                                <section className="rounded-[24px] bg-gradient-to-br from-[#141b2b] to-[#0b111d] border border-slate-800 p-4">
+                                    <div className="flex items-center gap-4">
+                                        <Avatar m={me} size={56} />
+                                        <div className="flex-1">
+                                            <p className="text-lg font-black text-white">{me.name}</p>
+                                            <p className="text-[10px] font-bold text-slate-500">{groupObj.emoji} {groupObj.name} · {SOURCES[device].name}</p>
+                                        </div>
+                                        <div className="text-right"><p className="text-2xl font-black text-[#c8ff00]">{gp.challenge.toLocaleString()}</p><p className="text-[9px] uppercase font-black text-slate-500">Challenge pts</p></div>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 mt-4">
+                                        {[['Rank', `#${gp.rank} of ${gp.size}`], ['Today', `${gp.today}/100`], ['Badges', `${badges.filter(b => b.earned).length}/${badges.length}`]].map(([l, v]) => (
+                                            <div key={l} className="bg-black/30 rounded-xl border border-slate-800 p-2 text-center"><p className="text-[9px] uppercase font-black text-slate-500">{l}</p><p className="text-sm font-black text-white">{v}</p></div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                {/* Streaks & badges */}
+                                <section className="rounded-[24px] bg-[#0e1422] border border-slate-800 p-4">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Streaks</p>
+                                    <div className="grid grid-cols-3 gap-2 mt-3">
+                                        {[['😴', 'Sleep', gp.streaks.sleep], ['🌙', 'Curfew', gp.streaks.curfew], ['👟', 'Step goal', gp.streaks.steps]].map(([i, l, v]) => (
+                                            <div key={l} className="rounded-xl bg-[#060911] border border-slate-800 p-2.5 text-center"><p className="text-lg">{i}</p><p className="text-base font-black text-white">{v}d 🔥</p><p className="text-[9px] uppercase font-black text-slate-500">{l}</p></div>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mt-5">Badges</p>
+                                    <div className="grid grid-cols-2 gap-2 mt-3">
+                                        {badges.map(b => (
+                                            <div key={b.id} className={`rounded-xl p-2.5 border ${b.earned ? 'bg-amber-400/10 border-amber-400/40' : 'bg-[#060911] border-slate-800'}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-xl ${b.earned ? '' : 'grayscale opacity-50'}`}>{b.icon}</span>
+                                                    <div className="min-w-0"><p className="text-[11px] font-black text-slate-200 truncate">{b.name}</p><p className="text-[9px] text-slate-500 font-medium truncate">{b.desc}</p></div>
+                                                </div>
+                                                <div className="mt-2"><Bar pct={(b.have / b.need) * 100} color={b.earned ? '#fbbf24' : '#475569'} /></div>
+                                                <p className="text-[9px] font-black text-slate-500 mt-1">{b.earned ? 'Unlocked' : `${b.have}/${b.need}`}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+
+                                <section className="rounded-[24px] bg-[#0e1422] border border-slate-800 p-4 flex gap-3">
+                                    <span className="text-xl">🔒</span>
+                                    <p className="text-[11px] text-slate-400 font-medium leading-relaxed">Screen time is never shared as minutes. Your squad only sees pass / fail for curfew and Phone Down.</p>
+                                </section>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ---------- Daily / Weekly story viewer ---------- */}
+                    {story && (() => {
+                        const slides = story.kind === 'daily' ? dailySlides : weeklySlides;
+                        const sl = slides[story.idx];
+                        return (
+                            <div className="absolute inset-0 z-50 flex flex-col animate-fadeIn" style={{ background: sl.bg }}>
+                                <div className="flex gap-1 px-3 pt-3">
+                                    {slides.map((_, i) => (
+                                        <div key={i} className="flex-1 h-1 rounded-full bg-white/25 overflow-hidden">
+                                            {i < story.idx ? <div className="h-full w-full bg-white"></div> : i === story.idx ? <div key={`${story.kind}-${i}`} className="h-full bg-white animate-grow"></div> : null}
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="flex items-center justify-between px-4 mt-3">
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-8 h-8 rounded-full bg-black/30 flex items-center justify-center">⚡</span>
+                                        <div><p className="text-xs font-black text-white">{story.kind === 'daily' ? 'Daily Spotlight' : 'Weekly Wrapped'}</p><p className="text-[10px] text-white/70">{groupObj.name}</p></div>
+                                    </div>
+                                    <button onClick={() => setStory(null)} className="text-white text-3xl leading-none px-2" aria-label="Close">×</button>
+                                </div>
+                                <div className="relative flex-1 flex flex-col items-center justify-center text-center px-8">
+                                    <p className="text-[11px] font-black uppercase tracking-[0.25em] text-white/70">{sl.kicker}</p>
+                                    <div className="mt-5 animate-pop" key={`${story.kind}-${story.idx}`}>{sl.hero}</div>
+                                    <p className="text-2xl font-black text-white mt-5 leading-tight">{sl.title}</p>
+                                    {sl.sub && <p className="text-sm font-bold text-white/80 mt-2">{sl.sub}</p>}
+                                    <button className="absolute inset-y-0 left-0 w-1/3" onClick={() => setStory(st => (st.idx > 0 ? { ...st, idx: st.idx - 1 } : st))} aria-label="Previous"></button>
+                                    <button className="absolute inset-y-0 right-0 w-2/3" onClick={() => setStory(st => (st.idx < slides.length - 1 ? { ...st, idx: st.idx + 1 } : null))} aria-label="Next"></button>
+                                </div>
+                                <p className="text-center text-white/60 text-[10px] pb-8">Tap to continue</p>
+                            </div>
+                        );
+                    })()}
+
+                    {snapView && (
+                        <div className="absolute inset-0 z-50 flex flex-col animate-fadeIn" style={{ background: snapView.snap.bg }} onClick={() => setSnapView(null)}>
+                            <div className="h-1 bg-white/30 m-3 rounded-full overflow-hidden"><div className="h-full bg-white animate-grow"></div></div>
+                            <div className="flex items-center gap-2 px-4">
+                                <Avatar m={byId[snapView.userId]} size={32} />
+                                <span className="text-sm font-black text-white">{byId[snapView.userId].name}</span>
+                                <span className="text-xs text-white/70">{snapView.time}</span>
+                            </div>
+                            <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+                                <span className="text-8xl">{snapView.snap.emoji}</span>
+                                <p className="text-xl font-black text-white mt-6 drop-shadow">{snapView.snap.caption}</p>
+                            </div>
+                            <p className="text-center text-white/70 text-xs pb-10">Tap to close • view once</p>
+                        </div>
+                    )}
+
+                    {toast && <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full bg-white text-black text-xs font-black shadow-2xl animate-pop whitespace-nowrap">{toast}</div>}
+
+                    {/* Bottom Navigation */}
+                    <nav className="absolute bottom-3 left-3 right-3 z-30">
+                        <div className="relative flex p-1.5 rounded-[26px] bg-[#0b111d]/90 backdrop-blur-xl border border-slate-800/90 shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
+                            <div className="absolute top-1.5 bottom-1.5 rounded-[20px] bg-gradient-to-b from-cyan-400/25 to-cyan-400/5 border border-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.18)] transition-all duration-300 ease-out"
+                                style={{ left: `calc(6px + ${Math.max(0, TABS.findIndex(x => x[0] === tab))} * (100% - 12px) / ${TABS.length})`, width: `calc((100% - 12px) / ${TABS.length})` }}></div>
+                            {TABS.map(([k, label, icon]) => {
+                                const active = tab === k;
+                                return (
+                                    <button key={k} onClick={() => setTab(k)} aria-label={label} aria-current={active ? 'page' : undefined} className="relative flex-1 flex flex-col items-center gap-1 py-2">
+                                        <svg className={`w-[22px] h-[22px] transition-all duration-300 ${active ? 'text-cyan-300 -translate-y-0.5' : 'text-slate-500'}`} fill="none" stroke="currentColor" strokeWidth={active ? 2.2 : 1.8} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">{icon}</svg>
+                                        <span className={`text-[10px] font-black tracking-wide transition-colors ${active ? 'text-cyan-200' : 'text-slate-500'}`}>{label}</span>
+                                        {k === 'chat' && unread > 0 && <span className="absolute top-1 right-[18%] min-w-[17px] h-[17px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center ring-2 ring-[#0b111d] animate-pop">{unread}</span>}
+                                        {k === 'map' && map.run && <span className="absolute top-1.5 right-[26%] w-2 h-2 rounded-full bg-emerald-400 animate-pulse ring-2 ring-[#0b111d]"></span>}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </nav>
+                </div>
+            );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
