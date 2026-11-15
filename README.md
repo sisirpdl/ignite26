@@ -84,3 +84,7 @@ The original HTML file still uses CDN dependencies. Serve it through the backend
 ## Avatar credits
 
 Bundled Adventurer characters by Lisa Wischofsky, generated through DiceBear 9.x under CC BY 4.0. The same seeds and colors as the HTML prototype are used. See `assets/avatars/ATTRIBUTION.md` and the in-app profile credits. These are not Snapchat Bitmoji assets.
+
+### Typography
+
+The native app bundles Barlow (regular through extra bold) for chat, labels, and controls, with Barlow Condensed for display headings and the recovery score. Shared `Typography` components select actual font weight files on iOS, Android, and web and preserve nested text styling. Fonts load locally through Expo Font; no external font request is needed at runtime. Barlow is by Jeremy Tribby, licensed under the SIL Open Font License; see `assets/fonts/OFL-Barlow.txt`.

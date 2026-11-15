@@ -20,19 +20,19 @@ export const colors = {
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 };
 export const type = {
   overline: {
-    fontFamily: "Manrope_800ExtraBold",
+    fontFamily: "Barlow_800ExtraBold",
     fontSize: 10,
     letterSpacing: 1.6,
     color: colors.muted,
   },
   caption: {
-    fontFamily: "Manrope_600SemiBold",
+    fontFamily: "Barlow_600SemiBold",
     fontSize: 12,
     color: colors.muted,
   },
-  body: { fontFamily: "Manrope_400Regular", fontSize: 14, color: colors.text },
-  title: {
-    fontFamily: "Manrope_800ExtraBold",
+  body: { fontFamily: "Barlow_400Regular", fontSize: 14, color: colors.text },
+  title: { fontFamily: "BarlowCondensed_800ExtraBold",
+
     fontSize: 26,
     letterSpacing: -1,
     color: colors.text,

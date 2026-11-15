@@ -1,16 +1,7 @@
+import { Text, TextInput } from "../components/common/Typography";
 import { useBackendState } from "../data/BackendProvider";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Avatar from "../components/common/Avatar";
 import ModalSheet from "../components/common/ModalSheet";

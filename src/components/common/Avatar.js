@@ -1,5 +1,6 @@
+import { Text } from "./Typography";
 import React, { useState } from "react";
-import { Image, Text, View } from "react-native";
+import { Image, View } from "react-native";
 const portraits = {
   Kai: require("../../../assets/avatars/kai.png"),
   Nova: require("../../../assets/avatars/nova.png"),

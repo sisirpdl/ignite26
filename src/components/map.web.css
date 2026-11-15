@@ -1,4 +1,4 @@
-.clutch-map { isolation:isolate; background:#111a25; font-family:Manrope, sans-serif; }
+.clutch-map { isolation:isolate; background:#111a25; font-family:Barlow_600SemiBold, sans-serif; }
 .clutch-map .leaflet-control-attribution { background:rgba(5,7,10,.85);color:#94a3b8;font-size:8px; }
 .clutch-map .leaflet-control-attribution a { color:#b3cce1; }
 .clutch-map .leaflet-bar a {background:#111b2b;color:#d4e3f0;border-color:#24374b;}

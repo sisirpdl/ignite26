@@ -1,14 +1,8 @@
+import { Text } from "./common/Typography";
 import { useBackendState } from "../data/BackendProvider";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useEffect, useState } from "react";
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Avatar from "./common/Avatar";
 import ProgressBar from "./common/ProgressBar";
 import { ME, squad } from "../constants/data";

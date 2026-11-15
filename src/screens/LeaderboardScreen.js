@@ -1,5 +1,6 @@
+import { Text } from "../components/common/Typography";
 import React, { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Svg, { Circle, Line, Polyline, Text as SvgText } from "react-native-svg";
 import Avatar from "../components/common/Avatar";
 import Card from "../components/common/Card";
@@ -241,7 +242,7 @@ function ChallengeChart({ people, range }) {
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.bg },
   content: { padding: 24, gap: 18, paddingBottom: 22 },
-  title: { color: colors.text, fontSize: 32, fontWeight: "900", marginTop: 2 },
+  title: { fontFamily: "BarlowCondensed_800ExtraBold", color: colors.text, fontSize: 32, fontWeight: "900", marginTop: 2 },
   sub: { color: colors.muted, marginTop: 4, fontSize: 12 },
   ranges: {
     flexDirection: "row",

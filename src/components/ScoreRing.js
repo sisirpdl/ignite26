@@ -1,5 +1,6 @@
+import { Text } from "./common/Typography";
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import { colors } from "../styles/theme";
 
@@ -54,7 +55,7 @@ export default function ScoreRing({
 const styles = StyleSheet.create({
   svg: { position: "absolute" },
   center: { alignItems: "center" },
-  value: { fontSize: 36, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  value: { fontFamily: "BarlowCondensed_800ExtraBold", fontSize: 36, fontWeight: "900", fontVariant: ["tabular-nums"] },
   label: {
     color: "#B6C9DC",
     fontSize: 9,

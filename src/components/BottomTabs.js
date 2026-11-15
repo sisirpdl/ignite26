@@ -1,5 +1,6 @@
+import { Text } from "./common/Typography";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../styles/theme";
@@ -72,8 +73,8 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#21566B",
   },
-  label: { fontFamily: "Manrope_600SemiBold", fontSize: 10, color: colors.dim },
-  labelOn: { color: colors.cyan, fontFamily: "Manrope_800ExtraBold" },
+  label: { fontFamily: "Barlow_600SemiBold", fontSize: 10, color: colors.dim },
+  labelOn: { color: colors.cyan, fontFamily: "Barlow_800ExtraBold" },
   badge: {
     position: "absolute",
     right: 9,

@@ -1,13 +1,6 @@
+import { Text } from "../components/common/Typography";
 import React, { useState, useId } from "react";
-import {
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
+import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Defs, LinearGradient, Stop, Rect } from "react-native-svg";
@@ -553,9 +546,9 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  brand: {
+  brand: { fontFamily: "BarlowCondensed_800ExtraBold",
     color: "white",
-    fontFamily: "Manrope_800ExtraBold",
+
     fontSize: 25,
     letterSpacing: -1.2,
   },
@@ -643,7 +636,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   clutchTitle: {
-    fontFamily: "Manrope_800ExtraBold",
+    fontFamily: "Barlow_800ExtraBold",
     fontSize: 18,
     color: "white",
     letterSpacing: -0.5,
@@ -672,7 +665,7 @@ const s = StyleSheet.create({
   },
   sectionTitle: {
     color: "white",
-    fontFamily: "Manrope_800ExtraBold",
+    fontFamily: "Barlow_800ExtraBold",
     fontSize: 17,
     letterSpacing: -0.4,
   },
@@ -692,7 +685,7 @@ const s = StyleSheet.create({
     paddingBottom: 4,
   },
   readyTitle: {
-    fontFamily: "Manrope_800ExtraBold",
+    fontFamily: "Barlow_800ExtraBold",
     color: "white",
     fontSize: 25,
     lineHeight: 28,
@@ -742,7 +735,7 @@ const s = StyleSheet.create({
   miniValue: {
     color: "white",
     fontSize: 24,
-    fontFamily: "Manrope_800ExtraBold",
+    fontFamily: "Barlow_800ExtraBold",
     letterSpacing: -0.8,
     marginTop: 9,
     marginBottom: 3,
@@ -769,13 +762,13 @@ const s = StyleSheet.create({
   arena: { flex: 1, padding: 15, borderRadius: 20, borderWidth: 1 },
   arenaTitle: {
     color: "white",
-    fontFamily: "Manrope_800ExtraBold",
+    fontFamily: "Barlow_800ExtraBold",
     fontSize: 16,
     marginTop: 11,
     marginBottom: 4,
   },
-  feedTitle: {
-    fontFamily: "Manrope_800ExtraBold",
+  feedTitle: { fontFamily: "BarlowCondensed_800ExtraBold",
+
     fontSize: 20,
     lineHeight: 25,
     letterSpacing: -0.6,
@@ -815,9 +808,9 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   storyMain: { flex: 1, justifyContent: "center", alignItems: "center" },
-  storyTitle: {
+  storyTitle: { fontFamily: "BarlowCondensed_800ExtraBold",
     color: "white",
-    fontFamily: "Manrope_800ExtraBold",
+
     fontSize: 34,
     lineHeight: 39,
     textAlign: "center",

@@ -1,6 +1,7 @@
+import { Text } from "../components/common/Typography";
 import { useBackendState } from "../data/BackendProvider";
 import React, { useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import MapView, { Marker, Polygon, Polyline } from "../components/MapCanvas";
 import * as Location from "expo-location";
 import Avatar from "../components/common/Avatar";

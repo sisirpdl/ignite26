@@ -1,6 +1,7 @@
+import { Text } from "./components/common/Typography";
 import { useBackendStatus } from "./data/BackendProvider";
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import BottomTabs from "./components/BottomTabs";
 import DashboardScreen from "./screens/DashboardScreen";

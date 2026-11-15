@@ -1,3 +1,4 @@
+import { Text } from "../components/common/Typography";
 import React, {
   createContext,
   useContext,
@@ -5,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors } from "../styles/theme";
 const Context = createContext(null);

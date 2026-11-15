@@ -1,12 +1,6 @@
+import { Text } from "./Typography";
 import React from "react";
-import {
-  Modal,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  ScrollView,
-} from "react-native";
+import { Modal, Pressable, StyleSheet, View, ScrollView } from "react-native";
 import { colors } from "../../styles/theme";
 
 export default function ModalSheet({ visible, title, children, onClose }) {

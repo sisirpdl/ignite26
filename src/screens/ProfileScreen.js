@@ -1,14 +1,7 @@
+import { Text } from "../components/common/Typography";
 import { SafeAreaView } from "react-native-safe-area-context";
 import React from "react";
-import {
-  Linking,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Linking, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import Avatar from "../components/common/Avatar";
 import Card from "../components/common/Card";
 import ProgressBar from "../components/common/ProgressBar";

@@ -1,5 +1,6 @@
+import { Text } from "./common/Typography";
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import Svg, { Path } from "react-native-svg";
 import { colors } from "../styles/theme";
 export default function Brand() {
@@ -24,10 +25,10 @@ export default function Brand() {
 }
 const s = StyleSheet.create({
   row: { flexDirection: "row", gap: 6, alignItems: "center" },
-  name: {
-    fontFamily: "Manrope_800ExtraBold",
+  name: { fontFamily: "BarlowCondensed_800ExtraBold",
+
     fontSize: 28,
-    letterSpacing: -1.8,
+    letterSpacing: -0.6,
     color: colors.text,
   },
   period: { color: colors.accent },

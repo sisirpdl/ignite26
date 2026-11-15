@@ -1,3 +1,4 @@
+import { Text } from "./common/Typography";
 import { createPortal } from "react-dom";
 import React, {
   createContext,
@@ -8,7 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./map.web.css";
